@@ -231,7 +231,7 @@ const resources = {
                 item_unchanged: "Цена {{fuel}} не изменилась"
             },
             discounts: 'Скидки',
-            all_stations_same_price: 'Одинаковая цена на всех станциях',
+            all_stations_same_price: 'Одинаковая цена на всех АЗС',
             avg_prices: {
                 title: 'История',
                 day: 'День',

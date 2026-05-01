@@ -39,8 +39,15 @@ const calculateAnalysis = (historyData, fuelTypes) => {
     const thirtyDaysAgoRaw = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const threeMonthsAgoRaw = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    // Use end-of-day for more intuitive comparison (shows price valid for most of that day)
-    const oneDayAgo = getEndOfDayInLatvia(oneDayAgoRaw);
+    // For 24H: compare to the price exactly 24 hours ago (not end-of-yesterday).
+    // End-of-yesterday breaks during/after a discount window: yesterday's last
+    // record is the post-discount-recovery price, which makes today's price
+    // look slightly LOWER even when it actually rose vs the discount baseline.
+    // Using the price at "now-24h" matches what a customer would have paid
+    // a day ago at the same moment.
+    const oneDayAgo = oneDayAgoRaw;
+    // Longer periods keep end-of-day-Latvia semantics — smooths diurnal noise
+    // and is well-defined regardless of timezone offset.
     const sevenDaysAgo = getEndOfDayInLatvia(sevenDaysAgoRaw);
     const thirtyDaysAgo = getEndOfDayInLatvia(thirtyDaysAgoRaw);
     const threeMonthsAgo = getEndOfDayInLatvia(threeMonthsAgoRaw);

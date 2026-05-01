@@ -4,7 +4,7 @@ import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ErrorBar, ReferenceArea } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import PriceChangeCards from './InsightsPanel';
@@ -21,6 +21,12 @@ const FUEL_COLORS = {
 };
 
 const DISCOUNT_COLOR = '#44D62C'; // Vibrant Pantone Green for discounts
+
+// Matches all known discount marker phrasings: the prices-page text
+// (e.g. "Visās stacijās cenas vienādas", "visās degvielas uzpildes stacijās
+// cena vienāda", "Visās degvielas uzpildes stacijās") and the homepage-banner
+// marker injected by server/scraper.js (contains "samazināta cena").
+const DISCOUNT_MARKER_RE = /vis[āa]s[\s\S]*stacij[āa]s|samazin[āa]ta\s+cena/i;
 
 const lngs = {
   lv: { nativeName: 'Latviešu', flag: '🇱🇻' },
@@ -239,18 +245,27 @@ const Toast = ({ notification, onDismiss, t }) => {
           className="fixed top-[45vh] md:top-[130px] inset-x-0 mx-auto z-[100] max-w-sm w-[calc(100%-2rem)] sm:w-[92%]"
         >
           <div
-            className="bg-yellow-50/95 rounded-[22px] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] overflow-hidden border border-yellow-200/50"
+            className="bg-white/95 rounded-[22px] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] overflow-hidden border border-gray-200/60"
           >
             <div className="p-3 sm:p-4">
               <div className="flex items-center gap-2.5 sm:gap-3">
                 {/* Icon */}
-                <div className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                  {notification.hasChanges ? (
-                    <TrendingUp size={16} className="text-gray-700 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                  ) : (
-                    <Info size={16} className="text-gray-700 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                  )}
-                </div>
+                {(() => {
+                  const netDiff = notification.changes?.reduce((sum, c) => sum + c.diff, 0) ?? 0;
+                  const isUp = notification.hasChanges && netDiff > 0.0001;
+                  const isDown = notification.hasChanges && netDiff < -0.0001;
+                  return (
+                    <div className={`flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center ${isUp ? 'bg-red-50' : isDown ? 'bg-green-50' : 'bg-gray-100'}`}>
+                      {isUp ? (
+                        <TrendingUp size={16} className="text-red-500 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                      ) : isDown ? (
+                        <TrendingDown size={16} className="text-green-600 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                      ) : (
+                        <Info size={16} className="text-gray-500 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -421,7 +436,14 @@ const FuelCard = ({ type, price, location }) => {
 
   // Parse addresses from pipe-separated string
   let addressList = [];
-  const isAllStationsSamePrice = location && /vienād/i.test(location);
+  // True when the location field is a "same price everywhere" marker rather than
+  // a list of specific station addresses. Covers all observed phrasings:
+  //   • old price-page:  "Visās stacijās cenas vienādas" / "…cena vienāda"
+  //   • current page:    "Visās degvielas uzpildes stacijās"
+  //   • homepage/IG:     "Visās Neste DUS degvielai samazināta cena (homepage)"
+  const isAllStationsSamePrice = location && (
+    /vienād/i.test(location) || DISCOUNT_MARKER_RE.test(location)
+  );
   if (isAllStationsSamePrice) {
     addressList = [t('all_stations_same_price')];
   } else if (location && location.trim().length > 0) {
@@ -766,7 +788,7 @@ const HistoryTable = React.memo(({
         const dayData = dayMap.get(dateKey);
         if (!dayData.rawFuels[e.type]) dayData.rawFuels[e.type] = [];
         dayData.rawFuels[e.type].push({ price: e.price, timestamp: e.timestamp });
-        if (!dayData.hasDiscountLocation && e.location && /vienād/i.test(e.location)) {
+        if (!dayData.hasDiscountLocation && e.location && DISCOUNT_MARKER_RE.test(e.location)) {
             dayData.hasDiscountLocation = true;
         }
     });
@@ -815,24 +837,26 @@ const HistoryTable = React.memo(({
         });
     }
 
-    // Finalize isDiscount — mirrors the chart's 2-condition rule (see processData):
-    //   1. Marker text present on at least one entry (hasDiscountLocation)
-    //   2. Every fuel type with data on both days dropped ≥ €0.05 (latest OR min vs prev.latest)
-    const MIN_DISCOUNT_DROP = 0.05;
+    // Finalize isDiscount — mirrors the chart's logic in processData.
+    // Marker + gasoline (95, 98) both dropped ≥4¢ day-over-day. No
+    // carry-forward: only the day with the visible day-over-day drop is the
+    // discount day, not the next day where price recovers.
+    const MIN_DISCOUNT_DROP = 0.04;
     const EPSILON = 0.001;
+    const GASOLINE_FUELS = ['Neste Futura 95', 'Neste Futura 98'];
     for (let i = 1; i < rows.length; i++) {
         if (!rows[i].hasDiscountLocation) continue;
         const prev = rows[i - 1];
         const curr = rows[i];
-        const allDropped = FUEL_KEYS.every(f => {
+        const gasolineDropped = GASOLINE_FUELS.every(f => {
             const prevFuel = prev.fuels[f];
             const currFuel = curr.fuels[f];
-            if (!prevFuel || !currFuel) return true; // missing data doesn't block
+            if (!prevFuel || !currFuel) return true;
             const dropLatest = prevFuel.latest - currFuel.latest;
             const dropMin = prevFuel.latest - currFuel.min;
-            return dropLatest >= MIN_DISCOUNT_DROP - EPSILON || dropMin >= MIN_DISCOUNT_DROP - EPSILON;
+            return Math.max(dropLatest, dropMin) >= MIN_DISCOUNT_DROP - EPSILON;
         });
-        rows[i].isDiscount = allDropped;
+        rows[i].isDiscount = gasolineDropped;
     }
 
     return rows;
@@ -1498,12 +1522,11 @@ export default function App() {
         formattedTime = `${startStr} - ${endStr}`;
       }
 
-      // Detect discount location: any fuel type in this period has the "all stations same price" marker.
-      // Match on the "vienād" root (case-insensitive) to survive phrasing changes on neste.lv
-      // (e.g. "Visās stacijās cenas vienādas" vs "visās degvielas uzpildes stacijās cena vienāda").
+      // Detect discount location: any fuel type in this period has a discount marker
+      // in its location field. See DISCOUNT_MARKER_RE for the supported phrasings.
       const hasDiscountLocation = Object.values(data).some(fuelData =>
         fuelData.prices.some(p =>
-          p.location && /vienād/i.test(p.location)
+          p.location && DISCOUNT_MARKER_RE.test(p.location)
         )
       );
 
@@ -1548,34 +1571,39 @@ export default function App() {
 
     const sorted = result.sort((a, b) => a.date - b.date);
 
-    // Second pass: finalize isDiscount by checking price drop ≥ €0.05 vs previous period
-    // Both conditions must be met:
-    //   1. Location contains "Visās stacijās cenas vienādas" (hasDiscountLocation)
-    //   2. ALL available fuel types dropped by at least 5 cents
-    const MIN_DISCOUNT_DROP = 0.05;
-    const EPSILON = 0.001; // Guard against floating-point rounding (e.g. 1.797-1.747 = 0.04999…)
-    const fuelTypes = Object.keys(FUEL_COLORS);
-    for (let i = 0; i < sorted.length; i++) {
+    // Second pass: finalize isDiscount. A period is a discount when both:
+    //   1. It has the marker (hasDiscountLocation), AND
+    //   2. Both gasoline fuels (95, 98) dropped ≥4¢ vs the previous period
+    //      (using latest OR intra-period min).
+    //
+    // Why gasoline-only for the drop gate: diesel drops are inconsistent on
+    // real discount days (sometimes only 1-2¢, e.g. 2026-04-28) while 95 and
+    // 98 reliably drop together. Requiring all four fuels was hiding weak
+    // diesel discounts.
+    //
+    // We do NOT carry the discount flag forward to the next day. Neste
+    // typically runs ~24h discounts that span the boundary between two
+    // calendar days (e.g. 2026-04-28 22:00 → 2026-04-29 22:00 Riga). Only the
+    // day on which the price visibly DROPPED day-over-day is the discount
+    // day; the day after is the price-recovery day even if its intra-day min
+    // briefly equals the discount price.
+    const MIN_DISCOUNT_DROP = 0.04;
+    const EPSILON = 0.001;
+    const GASOLINE_FUELS = ['Neste Futura 95', 'Neste Futura 98'];
+    for (let i = 1; i < sorted.length; i++) {
       if (!sorted[i].hasDiscountLocation) continue;
-      if (i === 0) {
-        // No previous period to compare — can't verify price drop, don't mark
-        continue;
-      }
       const prev = sorted[i - 1];
       const curr = sorted[i];
-      // Check that ALL available fuel types dropped by at least MIN_DISCOUNT_DROP
-      // Use min price to catch intra-day discounts where the last price
-      // reverts to normal but a discount happened during the day
-      const allDropped = fuelTypes.every(fuel => {
+      const gasolineDropped = GASOLINE_FUELS.every(fuel => {
         const prevPrice = prev[fuel];
-        const currPrice = curr[fuel];
-        const currMinPrice = curr[`${fuel}_min`];
-        // If either is missing, skip this fuel (don't block the discount flag)
-        if (prevPrice === undefined || currPrice === undefined) return true;
-        // Either the last price dropped by ≥5¢ OR the min price dropped by ≥5¢ (intra-day discount)
-        return prevPrice - currPrice >= MIN_DISCOUNT_DROP - EPSILON || (currMinPrice !== undefined && prevPrice - currMinPrice >= MIN_DISCOUNT_DROP - EPSILON);
+        const currLast = curr[fuel];
+        const currMin = curr[`${fuel}_min`];
+        if (prevPrice === undefined || currLast === undefined) return true;
+        const dropLast = prevPrice - currLast;
+        const dropMin = currMin !== undefined ? prevPrice - currMin : -Infinity;
+        return Math.max(dropLast, dropMin) >= MIN_DISCOUNT_DROP - EPSILON;
       });
-      sorted[i].isDiscount = allDropped;
+      sorted[i].isDiscount = gasolineDropped;
     }
 
     return sorted;
@@ -1661,9 +1689,10 @@ export default function App() {
       </header>
 
       {/* Disclaimer */}
-      <div className="bg-blue-50 border-b border-blue-200">
+      <div className="bg-amber-50 border-b border-amber-200">
         <div className="max-w-5xl mx-auto px-6 py-3">
-          <p className="text-sm text-blue-700 text-center font-medium">
+          <p className="text-sm text-amber-700 text-center font-medium flex items-center justify-center gap-1.5">
+            <AlertTriangle size={15} className="shrink-0" strokeWidth={2} />
             {t('disclaimer')}
           </p>
         </div>
