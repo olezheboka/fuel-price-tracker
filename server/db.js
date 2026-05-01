@@ -1,5 +1,18 @@
 const path = require('path');
 
+// Force the pg driver to interpret TIMESTAMP (without timezone) columns as UTC.
+// Without this, pg parses naive timestamps using the Node process's local
+// timezone — which on a developer machine in Europe/Riga shifts every record
+// by 3 hours vs production (Vercel runs in UTC). Affects every consumer of
+// /api/prices/history downstream.
+try {
+    const pgTypes = require('pg').types;
+    // OID 1114 = TIMESTAMP WITHOUT TIME ZONE
+    pgTypes.setTypeParser(1114, str => new Date(str + 'Z'));
+} catch (_) {
+    // pg may not be installed in dev when only sqlite/mock is in use.
+}
+
 // Helper to convert SQLite parameters (?) to Postgres parameters ($1, $2, ...)
 function convertQueryToPg(sql) {
     let index = 1;
