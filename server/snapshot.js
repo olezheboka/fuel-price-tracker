@@ -42,17 +42,19 @@ async function writeSnapshot(latest, history) {
                 contentType: 'application/json',
                 addRandomSuffix: false,
                 cacheControlMaxAge: 3600,
+                token,
             }),
             put('prices/history.json', JSON.stringify(history), {
                 access: 'public',
                 contentType: 'application/json',
                 addRandomSuffix: false,
                 cacheControlMaxAge: 3600,
+                token,
             }),
         ]);
         console.log(`[SNAPSHOT] Blob updated. URL prefix: ${lr.url.split('/prices/')[0]}`);
     } catch (e) {
-        console.warn('[SNAPSHOT] Blob write failed (non-fatal):', e.message);
+        console.warn('[SNAPSHOT] Blob write failed (non-fatal):', e.message, e.cause || '');
     }
 }
 
