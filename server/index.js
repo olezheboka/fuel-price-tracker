@@ -360,9 +360,9 @@ app.get('/api/scrape', async (req, res) => {
         lastScrapeTime = Date.now();
 
         // Refresh memory + Blob snapshot after every successful scrape.
-        // Fire-and-forget: don't block the response.
+        // Await it so the serverless function doesn't terminate before Blob write completes.
         if (results.length > 0) {
-            updateSnapshot().catch(e => console.warn('[API] updateSnapshot:', e.message));
+            await updateSnapshot();
         }
 
         res.json({ status: 'ok', count: results.length });
