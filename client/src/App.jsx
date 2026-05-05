@@ -1121,7 +1121,7 @@ const HistoryTable = React.memo(({
 
 export default function App() {
   const { t, i18n } = useTranslation();
-  const [latestPrices, setLatestPrices] = useState([]);
+  const [latestPrices, setLatestPrices] = useState(window.__INITIAL_PRICES__ || []);
   const [historyData, setHistoryData] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -1160,9 +1160,14 @@ export default function App() {
     return 'days';
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!window.__INITIAL_PRICES__);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [lastCheck, setLastCheck] = useState(null);
+  const [lastCheck, setLastCheck] = useState(() => {
+    if (window.__INITIAL_PRICES__ && window.__INITIAL_PRICES__.length > 0) {
+      return window.__INITIAL_PRICES__[0].timestamp;
+    }
+    return null;
+  });
   const [notification, setNotification] = useState(null);
   const [showDiscounts, setShowDiscounts] = useState(() => {
     const params = new URLSearchParams(window.location.search);
