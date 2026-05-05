@@ -1,28 +1,80 @@
 import * as React from "react"
-import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { twMerge } from "tailwind-merge"
 import { clsx } from "clsx"
 
-const Popover = PopoverPrimitive.Root
+const Popover = ({ children }) => {
+  const [isOpen, setIsOpen] = React.useState(false)
+  const containerRef = React.useRef(null)
 
-const PopoverTrigger = PopoverPrimitive.Trigger
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isOpen])
 
-const PopoverContent = React.forwardRef(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
-    <PopoverPrimitive.Content
+  // Context-like passing of state to children
+  return (
+    <div className="relative inline-block" ref={containerRef}>
+      {React.Children.map(children, child => {
+        if (child.type.displayName === 'PopoverTrigger') {
+          return React.cloneElement(child, { isOpen, setIsOpen })
+        }
+        if (child.type.displayName === 'PopoverContent') {
+          return isOpen ? child : null
+        }
+        return child
+      })}
+    </div>
+  )
+}
+
+const PopoverTrigger = ({ children, isOpen, setIsOpen, asChild }) => {
+  const handleClick = (e) => {
+    e.preventDefault()
+    setIsOpen(!isOpen)
+  }
+
+  if (asChild) {
+    return React.cloneElement(children, {
+      onClick: handleClick,
+      "aria-expanded": isOpen,
+    })
+  }
+
+  return (
+    <button onClick={handleClick} aria-expanded={isOpen}>
+      {children}
+    </button>
+  )
+}
+PopoverTrigger.displayName = 'PopoverTrigger'
+
+const PopoverContent = React.forwardRef(({ className, align = "center", children, ...props }, ref) => {
+  return (
+    <div
       ref={ref}
-      align={align}
-      sideOffset={sideOffset}
       className={twMerge(
         clsx(
-          "z-50 rounded-xl border border-gray-200 bg-white p-4 text-gray-950 shadow-xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          "absolute z-50 mt-2 rounded-xl border border-gray-200 bg-white p-4 text-gray-950 shadow-xl outline-none animate-in fade-in zoom-in-95 duration-200 origin-top-left",
+          align === "start" ? "left-0" : align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
           className
         )
       )}
+      style={{ top: '100%' }}
       {...props}
-    />
-  </PopoverPrimitive.Portal>
-))
-PopoverContent.displayName = PopoverPrimitive.Content.displayName
+    >
+      {children}
+    </div>
+  )
+})
+PopoverContent.displayName = 'PopoverContent'
 
 export { Popover, PopoverTrigger, PopoverContent }
