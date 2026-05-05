@@ -676,7 +676,7 @@ const HistoryTable = React.memo(({
   const { i18n } = useTranslation();
   const allFuelTypes = FUEL_KEYS;
   const avgSelectedFuels = allFuelTypes;
-  const PAGE_SIZE = 30;
+  const PAGE_SIZE = 31;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // Reset visible rows when date range changes
@@ -728,8 +728,8 @@ const HistoryTable = React.memo(({
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - (days - 1)); // inclusive count
-    const s = fmtLocal(start);
-    const e = fmtLocal(end);
+    const s = toYMD(start.getTime());
+    const e = toYMD(end.getTime());
     onStartDateChange(s);
     onEndDateChange(e);
     onPresetChange?.(String(days));
@@ -738,8 +738,8 @@ const HistoryTable = React.memo(({
   const setThisMonth = () => {
     const end = new Date();
     const start = new Date(end.getFullYear(), end.getMonth(), 1);
-    const s = fmtLocal(start);
-    const e = fmtLocal(end);
+    const s = toYMD(start.getTime());
+    const e = toYMD(end.getTime());
     onStartDateChange(s);
     onEndDateChange(e);
     onPresetChange?.('thisMonth');
@@ -749,8 +749,8 @@ const HistoryTable = React.memo(({
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const end = new Date(now.getFullYear(), now.getMonth(), 0);
-    const s = fmtLocal(start);
-    const e = fmtLocal(end);
+    const s = toYMD(start.getTime());
+    const e = toYMD(end.getTime());
     onStartDateChange(s);
     onEndDateChange(e);
     onPresetChange?.('lastMonth');
@@ -882,10 +882,13 @@ const HistoryTable = React.memo(({
 
   // Filter `allDaysData` into just the selected date range
   const tableRows = useMemo(() => {
-    return allDaysData
-        .filter(r => r.dateKey >= filterStart && r.dateKey <= filterEnd)
-        .reverse(); // Newest day at top
-  }, [allDaysData, filterStart, filterEnd]);
+    const filtered = allDaysData.filter(r => r.dateKey >= filterStart && r.dateKey <= filterEnd);
+    // If the 30-day preset is active, strictly limit to 30 days to avoid 31st-day boundary issues
+    const result = (activePreset === '30' && filtered.length > 30) 
+      ? filtered.slice(-30) 
+      : filtered;
+    return result.reverse(); // Newest day at top
+  }, [allDaysData, filterStart, filterEnd, activePreset]);
 
   // Calculate OVERALL summaries only over the filtered selection (used for the big cards)
   const periodSummary = useMemo(() => {
@@ -1037,8 +1040,8 @@ const HistoryTable = React.memo(({
               </div>
               
               <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-                <div className="p-3 sm:p-4 bg-amber-50/50 border-b border-amber-100/50 flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="p-3 sm:p-4 bg-amber-50/50 border-b border-amber-100/50 flex items-center justify-center gap-2.5 text-center">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
                   <p className="text-xs sm:text-sm font-medium text-amber-800 leading-snug">
                     {t('avg_prices.latest_disclaimer')}
                   </p>
