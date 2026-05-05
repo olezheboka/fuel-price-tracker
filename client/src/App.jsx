@@ -4,7 +4,7 @@ import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ErrorBar, ReferenceArea } from 'recharts';
 import { useTranslation } from 'react-i18next';
 // framer-motion removed
-import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, AlertTriangle, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, CircleSlash2, FileSpreadsheet } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 const PriceChangeCards = lazy(() => import('./InsightsPanel'));
@@ -928,193 +928,208 @@ const HistoryTable = React.memo(({
 
 
   return (
-    <Card className="p-3 sm:p-6">
+    <Card className="p-3 sm:p-6 overflow-hidden">
       {/* Header with period controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-6 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-gray-400 shrink-0" />
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">{t('avg_prices.title')}</h2>
+          <TrendingUp className="w-4 h-4 text-gray-400 shrink-0" />
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">{t('analytics')}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangePicker
-             startDate={localStartDate}
-             endDate={localEndDate}
-             onRangeChange={(start, end) => {
-               setLocalStartDate(start);
-               setLocalEndDate(end);
+               startDate={localStartDate}
+               endDate={localEndDate}
+               onRangeChange={(start, end) => {
+                 setLocalStartDate(start);
+                 setLocalEndDate(end);
 
-               // Only update the active filter if we have a full range or both are cleared
-               if ((start && end) || (!start && !end)) {
-                 onStartDateChange(start);
-                 onEndDateChange(end);
-                 onPresetChange?.(null); // Custom date range, clear preset
-               }
-             }}
-             disabled={(date) => {
-               const key = toYMD(date);
-               return !availableDatesSet.has(key);
-             }}
-             locale={currentLang}
-             className={!activePreset ? "border-blue-500/50 bg-blue-50/50" : ""}
-          />
-          <SegmentedControl
-            options={[
-              { value: '30', label: t('avg_prices.last_30_days') },
-              { value: 'lastMonth', label: lastMonthName },
-              { value: 'thisMonth', label: thisMonthName },
-            ]}
-            value={activePreset}
-            onChange={(val) => {
-              if (val === '30') setPreset(30);
-              else if (val === 'lastMonth') setLastMonth();
-              else if (val === 'thisMonth') setThisMonth();
-            }}
-            layoutId="active-history-preset"
-            size="small"
-          />
+                 // Only update the active filter if we have a full range or both are cleared
+                 if ((start && end) || (!start && !end)) {
+                   onStartDateChange(start);
+                   onEndDateChange(end);
+                   onPresetChange?.(null); // Custom date range, clear preset
+                 }
+               }}
+               disabled={(date) => {
+                 const key = toYMD(date);
+                 return !availableDatesSet.has(key);
+               }}
+               locale={currentLang}
+               className={!activePreset ? "border-blue-500/50 bg-blue-50/50" : ""}
+            />
+            <SegmentedControl
+              options={[
+                { value: '30', label: t('avg_prices.last_30_days') },
+                { value: 'lastMonth', label: lastMonthName },
+                { value: 'thisMonth', label: thisMonthName },
+              ]}
+              value={activePreset}
+              onChange={(val) => {
+                if (val === '30') setPreset(30);
+                else if (val === 'lastMonth') setLastMonth();
+                else if (val === 'thisMonth') setThisMonth();
+              }}
+              layoutId="active-history-preset"
+              size="small"
+            />
+          </div>
         </div>
-      </div>
 
-      {loading && historyData.length === 0 ? (
-        <>
-          <HistorySummarySkeleton />
-          <HistoryTableSkeleton />
-        </>
-      ) : tableRows.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">{t('avg_prices.no_data')}</p>
-      ) : (
-        <>
-          {/* Summary Cards for selected period */}
-          {Object.keys(periodSummary).length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
-              {avgSelectedFuels.map(fuel => {
-                const stats = periodSummary[fuel];
-                if (!stats) return null;
-                return (
-                  <div
-                    key={fuel}
-                    className="rounded-xl p-3 sm:p-4 border-l-4 bg-white shadow-sm ring-1 ring-gray-100"
-                    style={{ borderLeftColor: FUEL_COLORS[fuel] }}
-                  >
-                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: FUEL_COLORS[fuel] }}>
-                      {t(fuel.replace('Neste ', ''))}
-                    </p>
-                    <p className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                      €{stats.avg.toFixed(3)}
-                    </p>
-                    <p className="mt-1.5">
-                      <span
-                        className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{
-                          color: FUEL_COLORS[fuel],
-                          backgroundColor: FUEL_COLORS[fuel] + '15'
-                        }}
+        {loading && historyData.length === 0 ? (
+          <div className="space-y-8">
+            <HistorySummarySkeleton />
+            <HistoryTableSkeleton />
+          </div>
+        ) : tableRows.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-10">{t('avg_prices.no_data')}</p>
+        ) : (
+          <div className="space-y-8">
+            {/* Section 1: Summary Cards for selected period */}
+            {Object.keys(periodSummary).length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <CircleSlash2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <h2 className="text-sm sm:text-base font-semibold text-gray-700">{t('avg_prices.title')}</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                  {avgSelectedFuels.map(fuel => {
+                    const stats = periodSummary[fuel];
+                    if (!stats) return null;
+                    return (
+                      <div
+                        key={fuel}
+                        className="rounded-xl p-3 sm:p-4 border-l-4 bg-gray-50/50 shadow-sm ring-1 ring-gray-100"
+                        style={{ borderLeftColor: FUEL_COLORS[fuel] }}
                       >
-                        {t('avg_prices.avg_for_days', { count: stats.count })}
-                      </span>
-                    </p>
-                    <div className="flex gap-3 mt-2 pt-2 border-t border-gray-50 text-[10px] text-gray-500 font-medium">
-                      <span>{t('avg_prices.min')}: €{stats.min.toFixed(3)}</span>
-                      <span>{t('avg_prices.max')}: €{stats.max.toFixed(3)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Detail Table — latest price per day within the selected period */}
-          <div className="rounded-xl border border-slate-200 overflow-hidden">
-            {/* Table heading */}
-            <div className="py-2.5 px-4 bg-slate-50 border-b border-slate-200">
-              <p className="text-xs sm:text-sm font-semibold text-gray-700 text-center">{t('avg_prices.latest_disclaimer')}</p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left text-[9px] sm:text-[10px] font-semibold text-gray-400 uppercase tracking-wide py-3 pl-2 sm:pl-4">
-                       {t('avg_prices.day')}
-                    </th>
-                    {avgSelectedFuels.map((fuel, idx) => {
-                      const label = t(fuel.replace('Neste ', ''));
-                      const shortLabel = label === 'Pro Diesel' ? 'Pro D' : label;
-                      const isLast = idx === avgSelectedFuels.length - 1;
-                      return (
-                        <th key={fuel} className={clsx("text-right text-[9px] sm:text-xs font-semibold uppercase tracking-wide px-1 sm:px-4 py-3 whitespace-nowrap", isLast && "pr-2 sm:pr-4")} style={{ color: FUEL_COLORS[fuel] }}>
-                          <div>
-                            <span className="sm:hidden">{shortLabel}</span>
-                            <span className="hidden sm:inline">{label}</span>
-                          </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-              <tbody>
-                {tableRows.slice(0, visibleCount).map((row) => {
-                  const highlighted = showDiscounts && row.isDiscount;
-                  return (
-                  <tr
-                    key={row.dateKey}
-                    style={highlighted ? { backgroundColor: `${DISCOUNT_COLOR}1A` } : undefined}
-                    className={clsx(
-                      "border-b border-gray-50 last:border-b-0 transition-colors",
-                      !highlighted && "hover:bg-slate-100/60"
-                    )}
-                  >
-                    <td className="py-2 pl-2 sm:pl-4 pr-0 sm:pr-2 align-top">
-                      <span className="block text-[10px] sm:text-sm font-normal text-gray-500 whitespace-nowrap tabular-nums leading-tight">{row.timeStr}</span>
-                    </td>
-                    {avgSelectedFuels.map((fuel, idx) => {
-                      const isLast = idx === avgSelectedFuels.length - 1;
-                      const data = row.fuels[fuel];
-                      if (!data) {
-                        return <td key={fuel} className={clsx("text-right px-1 sm:px-4 py-2 align-top text-gray-300 text-[10px]", isLast && "pr-2 sm:pr-4")}>—</td>;
-                      }
-                      return (
-                        <td key={fuel} className={clsx("text-right px-1 sm:px-4 py-2 align-top", isLast && "pr-2 sm:pr-4")}>
-                          <div className="flex flex-col items-end gap-0">
-                            <span className="text-[11px] sm:text-sm font-bold text-gray-900 leading-tight tabular-nums">€{data.latest.toFixed(3)}</span>
-                            <div className="flex flex-col items-end">
-                              {renderChange(data.change)}
-                              {data.min !== data.max && (
-                                <span className="text-[8px] sm:text-[9px] text-gray-400 font-medium whitespace-nowrap tracking-tighter sm:tracking-tight tabular-nums">
-                                  {data.min.toFixed(3)}–{data.max.toFixed(3)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  );
-                })}
-              </tbody>
-              </table>
-            </div>
-
-            {/* Show more / row count */}
-            {tableRows.length > PAGE_SIZE && (
-              <div className="flex flex-col items-center gap-2 py-3 px-4 border-t border-slate-100">
-                <span className="text-[11px] text-gray-400 font-medium">
-                  {t('avg_prices.showing_of', { visible: Math.min(visibleCount, tableRows.length), total: tableRows.length })}
-                </span>
-                {visibleCount < tableRows.length && (
-                  <button
-                    onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
-                    className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs sm:text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 active:scale-95 border border-blue-100 transition-all"
-                  >
-                    {t('avg_prices.show_more')}
-                  </button>
-                )}
+                        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: FUEL_COLORS[fuel] }}>
+                          {t(fuel.replace('Neste ', ''))}
+                        </p>
+                        <p className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                          €{stats.avg.toFixed(3)}
+                        </p>
+                        <p className="mt-1.5">
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                            style={{
+                              color: FUEL_COLORS[fuel],
+                              backgroundColor: FUEL_COLORS[fuel] + '15'
+                            }}
+                          >
+                            {t('avg_prices.avg_for_days', { count: stats.count })}
+                          </span>
+                        </p>
+                        <div className="flex gap-3 mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 font-medium">
+                          <span>{t('avg_prices.min')}: €{stats.min.toFixed(3)}</span>
+                          <span>{t('avg_prices.max')}: €{stats.max.toFixed(3)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Section 2: Detail Table — latest price per day within the selected period */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <h2 className="text-sm sm:text-base font-semibold text-gray-700">{t('avg_prices.table_title')}</h2>
+              </div>
+              
+              <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                <div className="p-3 sm:p-4 bg-amber-50/50 border-b border-amber-100/50 flex items-start gap-2.5">
+                  <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs sm:text-sm font-medium text-amber-800 leading-snug">
+                    {t('avg_prices.latest_disclaimer')}
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left text-[9px] sm:text-[10px] font-semibold text-gray-400 uppercase tracking-wide py-3 pl-2 sm:pl-4">
+                           {t('avg_prices.day')}
+                        </th>
+                        {avgSelectedFuels.map((fuel, idx) => {
+                          const label = t(fuel.replace('Neste ', ''));
+                          const shortLabel = label === 'Pro Diesel' ? 'Pro D' : label;
+                          const isLast = idx === avgSelectedFuels.length - 1;
+                          return (
+                            <th key={fuel} className={clsx("text-right text-[9px] sm:text-xs font-semibold uppercase tracking-wide px-1 sm:px-4 py-3 whitespace-nowrap", isLast && "pr-2 sm:pr-4")} style={{ color: FUEL_COLORS[fuel] }}>
+                              <div>
+                                <span className="sm:hidden">{shortLabel}</span>
+                                <span className="hidden sm:inline">{label}</span>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                  <tbody>
+                    {tableRows.slice(0, visibleCount).map((row) => {
+                      const highlighted = showDiscounts && row.isDiscount;
+                      return (
+                      <tr
+                        key={row.dateKey}
+                        style={highlighted ? { backgroundColor: `${DISCOUNT_COLOR}1A` } : undefined}
+                        className={clsx(
+                          "border-b border-gray-100 last:border-b-0 transition-colors",
+                          !highlighted && "hover:bg-slate-100/60"
+                        )}
+                      >
+                        <td className="py-2 pl-2 sm:pl-4 pr-0 sm:pr-2 align-top">
+                          <span className="block text-[10px] sm:text-sm font-normal text-gray-500 whitespace-nowrap tabular-nums leading-tight">{row.timeStr}</span>
+                        </td>
+                        {avgSelectedFuels.map((fuel, idx) => {
+                          const isLast = idx === avgSelectedFuels.length - 1;
+                          const data = row.fuels[fuel];
+                          if (!data) {
+                            return <td key={fuel} className={clsx("text-right px-1 sm:px-4 py-2 align-top text-gray-300 text-[10px]", isLast && "pr-2 sm:pr-4")}>—</td>;
+                          }
+                          return (
+                            <td key={fuel} className={clsx("text-right px-1 sm:px-4 py-2 align-top", isLast && "pr-2 sm:pr-4")}>
+                              <div className="flex flex-col items-end gap-0">
+                                <span className="text-[11px] sm:text-sm font-bold text-gray-900 leading-tight tabular-nums">€{data.latest.toFixed(3)}</span>
+                                <div className="flex flex-col items-end">
+                                  {renderChange(data.change)}
+                                  {data.min !== data.max && (
+                                    <span className="text-[8px] sm:text-[9px] text-gray-400 font-medium whitespace-nowrap tracking-tighter sm:tracking-tight tabular-nums">
+                                      {data.min.toFixed(3)}–{data.max.toFixed(3)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                  </table>
+                </div>
+
+                {/* Show more / row count */}
+                {tableRows.length > PAGE_SIZE && (
+                  <div className="flex flex-col items-center gap-2 py-3 px-4 border-t border-slate-100">
+                    <span className="text-[11px] text-gray-400 font-medium">
+                      {t('avg_prices.showing_of', { visible: Math.min(visibleCount, tableRows.length), total: tableRows.length })}
+                    </span>
+                    {visibleCount < tableRows.length && (
+                      <button
+                        onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+                        className="w-full sm:w-auto px-6 py-2 rounded-lg text-xs sm:text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 active:scale-95 border border-blue-100 transition-all"
+                      >
+                        {t('avg_prices.show_more')}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </>
-      )}
+        )}
     </Card>
   );
 });
@@ -1717,73 +1732,112 @@ export default function App() {
 
         {/* Fuel Prices */}
         <section>
-          {loading && latestPrices.length === 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              <FuelCardSkeleton />
-              <FuelCardSkeleton />
-              <FuelCardSkeleton />
-              <FuelCardSkeleton />
+          <Card className="p-3 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg sm:text-xl leading-none" role="img" aria-label="lightning">⚡</span>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                  {t('current_prices')}
+                </h2>
+              </div>
+              {lastCheck && (
+                <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400">
+                  <span className="text-[10px] sm:text-xs font-medium">
+                    {t('updated')}: {new Date(lastCheck).toLocaleString(i18n.language === 'en' ? 'en-GB' : i18n.language, {
+                      timeZone: 'Europe/Riga',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="group flex items-center justify-center p-1.5 rounded-full hover:bg-gray-200/50 active:scale-90 transition-all"
+                    title={t('refresh')}
+                  >
+                    <RefreshCw 
+                      className={clsx(
+                        "w-3 h-3 sm:w-3.5 sm:h-3.5 transition-colors", 
+                        loading ? "animate-spin text-blue-600" : "group-hover:text-gray-600"
+                      )} 
+                    />
+                  </button>
+                </div>
+              )}
             </div>
-          ) : latestPrices.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              {latestPrices.map((item) => (
-                <FuelCard key={item.type} {...item} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center text-gray-400 py-10">
-              {t('no_data')}
-            </div>
-          )}
+
+            {loading && latestPrices.length === 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <FuelCardSkeleton />
+                <FuelCardSkeleton />
+                <FuelCardSkeleton />
+                <FuelCardSkeleton />
+              </div>
+            ) : latestPrices.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                {latestPrices.map((item) => (
+                  <FuelCard key={item.type} {...item} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 py-10">
+                {t('no_data')}
+              </div>
+            )}
+          </Card>
         </section>
 
         {/* Chart Section */}
         <section>
           <Card className="p-3 sm:p-6">
             {/* Header with Time Period Pills */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+                <ChartSpline className="w-4 h-4 text-gray-400 shrink-0" />
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">{t('history')}</h2>
               </div>
-              <SegmentedControl
-                options={['days', 'weeks', 'months'].map(step => ({
-                  value: step,
-                  label: t(`intervals.${step}`)
-                }))}
-                value={graphInterval}
-                onChange={setGraphInterval}
-                layoutId="active-interval"
-                size="small"
-                className="z-10"
-              />
-            </div>
-
-            {/* Discount Toggle — only in day view */}
-            {graphInterval === 'days' && (
-              <div className="flex justify-end mb-4">
-                <button
-                  onClick={() => setShowDiscounts(prev => !prev)}
-                  className="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  <span>{t('discounts')}</span>
-                  <div
-                    className={clsx(
-                      'relative w-9 h-5 rounded-full transition-colors duration-200',
-                      !showDiscounts && 'bg-gray-300'
-                    )}
-                    style={{ backgroundColor: showDiscounts ? DISCOUNT_COLOR : undefined }}
+              
+              <div className="flex items-center gap-4 sm:gap-6">
+                {/* Discount Toggle — only in day view */}
+                {graphInterval === 'days' && (
+                  <button
+                    onClick={() => setShowDiscounts(prev => !prev)}
+                    className="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
                   >
+                    <span>{t('discounts')}</span>
                     <div
                       className={clsx(
-                        'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
-                        showDiscounts ? 'translate-x-[18px]' : 'translate-x-0.5'
+                        'relative w-9 h-5 rounded-full transition-colors duration-200',
+                        !showDiscounts && 'bg-gray-300'
                       )}
-                    />
-                  </div>
-                </button>
+                      style={{ backgroundColor: showDiscounts ? DISCOUNT_COLOR : undefined }}
+                    >
+                      <div
+                        className={clsx(
+                          'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
+                          showDiscounts ? 'translate-x-[18px]' : 'translate-x-0.5'
+                        )}
+                      />
+                    </div>
+                  </button>
+                )}
+
+                <SegmentedControl
+                  options={['days', 'weeks', 'months'].map(step => ({
+                    value: step,
+                    label: t(`intervals.${step}`)
+                  }))}
+                  value={graphInterval}
+                  onChange={setGraphInterval}
+                  layoutId="active-interval"
+                  size="small"
+                  className="z-10"
+                />
               </div>
-            )}
+            </div>
 
 
             {/* Timeline Slider — above the chart */}
@@ -2028,7 +2082,7 @@ export default function App() {
           <Card className="p-3 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-gray-400 shrink-0" />
+                <CircleGauge className="w-4 h-4 text-gray-400 shrink-0" />
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                   {t('insights.title')}
                 </h2>
@@ -2075,31 +2129,7 @@ export default function App() {
           />
         </section>
 
-        {/* Floating Refresh Button */}
-        <div className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none z-50">
-          <button
-            onClick={handleRefresh}
-            disabled={loading}
-            className="flex flex-col items-center px-6 py-2 bg-gray-900 text-white rounded-full pointer-events-auto shadow-2xl disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-2">
-              <RefreshCw className={clsx("w-4 h-4", loading && "animate-spin")} />
-              <span className="text-sm font-semibold">{loading ? t('loading') : t('refresh')}</span>
-            </div>
-            {!loading && lastCheck && (
-              <span className="text-[10px] opacity-60 font-medium">
-                {t('updated')}: {new Date(lastCheck).toLocaleString('lv-LV', {
-                  timeZone: 'Europe/Riga',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-            )}
-          </button>
-        </div>
+        <div className="h-8" />
 
       </main>
     </div >
