@@ -1069,10 +1069,11 @@ const HistoryTable = React.memo(({
                       return (
                       <tr
                         key={row.dateKey}
-                        style={highlighted ? { backgroundColor: `${DISCOUNT_COLOR}1A` } : undefined}
                         className={clsx(
-                          "border-b border-gray-100 last:border-b-0 transition-colors",
-                          !highlighted && "hover:bg-slate-100/60"
+                          "border-b border-gray-100 last:border-b-0 transition-all duration-200",
+                          highlighted 
+                            ? "bg-[#44D62C]/10 hover:bg-[#44D62C]/20" 
+                            : "hover:bg-slate-100/60"
                         )}
                       >
                         <td className="py-2 pl-2 sm:pl-4 pr-0 sm:pr-2 align-top">
