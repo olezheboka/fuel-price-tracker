@@ -1034,9 +1034,8 @@ const HistoryTable = React.memo(({
               </div>
               
               <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
-                <div className="p-3 sm:p-4 bg-amber-50/50 border-b border-amber-100/50 flex items-center justify-center gap-2.5 text-center">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                  <p className="text-xs sm:text-sm font-medium text-amber-800 leading-snug">
+                <div className="p-2.5 sm:p-3 bg-gray-50/80 border-b border-gray-100 flex items-center justify-center gap-2 text-center">
+                  <p className="text-sm font-medium text-gray-600">
                     {t('avg_prices.latest_disclaimer')}
                   </p>
                 </div>
