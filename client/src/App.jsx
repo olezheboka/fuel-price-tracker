@@ -1785,7 +1785,7 @@ export default function App() {
               </div>
             )}
             <div className="mt-3 sm:mt-4">
-              <p className="text-[10px] text-gray-400/60 font-light flex items-start sm:items-center gap-1.5 max-w-2xl leading-tight">
+              <p className="text-[10px] text-gray-600 font-normal flex items-start sm:items-center gap-1.5 max-w-2xl leading-tight">
                 <Info size={11} className="shrink-0 mt-[1px] sm:mt-0" strokeWidth={1.5} />
                 <span>{t('current_prices_disclaimer')}</span>
               </p>
