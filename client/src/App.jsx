@@ -99,7 +99,7 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
 };
  
   // Language Dropdown Component
-  const LanguageDropdown = ({ lngs, currentLng, onChange }) => {
+  const LanguageDropdown = ({ lngs, currentLng, onChange, compact = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = React.useRef(null);
  
@@ -117,7 +117,10 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
       <div className="relative" ref={containerRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-100/80 hover:bg-gray-200/80 rounded-xl transition-all duration-200 text-sm font-semibold text-gray-900 border border-transparent active:scale-95 shadow-sm"
+          className={clsx(
+            "flex items-center gap-2 px-3 bg-gray-100/80 hover:bg-gray-200/80 transition-all duration-200 text-sm font-semibold text-gray-900 border border-transparent active:scale-95 shadow-sm",
+            compact ? "py-1.5 rounded-lg" : "py-2 rounded-xl"
+          )}
         >
           <span>{lngs[currentLng].flag}</span>
           <span className="uppercase">{currentLng}</span>
@@ -1136,11 +1139,60 @@ export default function App() {
   const [latestPrices, setLatestPrices] = useState(window.__INITIAL_PRICES__ || []);
   const [historyData, setHistoryData] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isHeaderCompact, setIsHeaderCompact] = useState(() => window.scrollY > 80);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    let lastScrollY = Math.max(window.scrollY, 0);
+    let frameId = null;
+    let compact = lastScrollY > 80;
+
+    const setCompact = (nextCompact) => {
+      if (compact === nextCompact) return;
+      compact = nextCompact;
+      setIsHeaderCompact(nextCompact);
+    };
+
+    const handleScrollFrame = () => {
+      frameId = null;
+      const currentScrollY = Math.max(window.scrollY, 0);
+      const delta = currentScrollY - lastScrollY;
+
+      if (currentScrollY < 24) {
+        lastScrollY = currentScrollY;
+        setCompact(false);
+        return;
+      }
+
+      if (Math.abs(delta) < 8) return;
+
+      if (delta > 0 && currentScrollY > 80) {
+        setCompact(true);
+      } else if (delta < 0) {
+        setCompact(false);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    const handleScroll = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(handleScrollFrame);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
   }, []);
 
   // Insights fuel selector — single fuel for Price Insights section
@@ -1698,21 +1750,33 @@ export default function App() {
       />
 
       {/* Header */}
-      <header className="bg-white backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
-          <a
-            href="/"
-            className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight hover:text-gray-600 transition-colors cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis mr-4"
-          >
-            {t('app_title')}
-          </a>
-          <LanguageDropdown
-            lngs={lngs}
-            currentLng={i18n.language}
-            onChange={(val) => i18n.changeLanguage(val)}
-          />
-        </div>
-      </header>
+      <div className="h-[79px]">
+        <header className={clsx(
+          "fixed inset-x-0 top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200 transition-[box-shadow,background-color] duration-300 ease-out motion-reduce:transition-none",
+          isHeaderCompact ? "shadow-sm" : "shadow-none"
+        )}>
+          <div className={clsx(
+            "max-w-5xl mx-auto px-6 flex items-center justify-between transition-[padding] duration-300 ease-out motion-reduce:transition-none",
+            isHeaderCompact ? "py-2.5 sm:py-3" : "py-5"
+          )}>
+            <a
+              href="/"
+              className={clsx(
+                "font-bold text-gray-900 tracking-tight hover:text-gray-600 transition-[font-size,line-height,color] duration-300 ease-out cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis mr-4 motion-reduce:transition-none",
+                isHeaderCompact ? "text-lg sm:text-xl leading-tight" : "text-xl sm:text-2xl leading-tight"
+              )}
+            >
+              {t('app_title')}
+            </a>
+            <LanguageDropdown
+              lngs={lngs}
+              currentLng={i18n.language}
+              onChange={(val) => i18n.changeLanguage(val)}
+              compact={isHeaderCompact}
+            />
+          </div>
+        </header>
+      </div>
 
       {/* Disclaimer */}
       <div className="bg-blue-50 border-b border-blue-200">
