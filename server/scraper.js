@@ -47,8 +47,12 @@ async function detectHomepageDiscount() {
             timeout: 8000
         });
         const text = cheerio.load(data).text().replace(/\s+/g, ' ');
-        const m = text.match(/Šodien\s*\(\s*(\d{1,2})\.(\d{1,2})\.?\s*\)\s*[\s\S]{0,80}samazin[āa]ta\s+cena/i);
-        if (!m) return false;
+        const m = text.match(/Šodien\s*\(\s*(\d{1,2})\.(\d{1,2})\.?\s*\)\s*[\s\S]{0,200}samazin[āa]ta\s+cena/i);
+        if (!m) {
+            const snippet = text.slice(0, 200).replace(/"/g, "'");
+            console.log(`[SCRAPER] Homepage discount banner: not found. Page head: "${snippet}"`);
+            return false;
+        }
         const today = getRigaDateParts(new Date());
         const matches = parseInt(m[1], 10) === today.day && parseInt(m[2], 10) === today.month;
         console.log(`[SCRAPER] Homepage discount banner: ${matches ? 'today' : `stale (${m[1]}.${m[2]})`}`);
@@ -57,6 +61,22 @@ async function detectHomepageDiscount() {
         console.warn('[SCRAPER] Homepage check failed (non-fatal):', err.message);
         return false;
     }
+}
+
+// Manual discount override via FORCE_DISCOUNT_TODAY env var. Accepts:
+//   "1" / "true"  — always force discount marker
+//   "YYYY-MM-DD"  — force only when that Riga date matches today
+// Used as a safety valve when both auto-signals (homepage, Instagram) fail.
+function detectManualDiscount() {
+    const raw = (process.env.FORCE_DISCOUNT_TODAY || '').trim();
+    if (!raw) return false;
+    if (raw === '1' || raw.toLowerCase() === 'true') return true;
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return false;
+    const today = getRigaDateParts(new Date());
+    return parseInt(m[1], 10) === today.year
+        && parseInt(m[2], 10) === today.month
+        && parseInt(m[3], 10) === today.day;
 }
 
 // Detect a same-day discount post on @neste_latvija via RSSHub. We only count
@@ -116,7 +136,9 @@ async function scrapePrices() {
             detectInstagramDiscount()
         ]);
         const { data } = pricesRes;
-        const externalDiscount = homepageDiscount || instagramDiscount;
+        const manualDiscount = detectManualDiscount();
+        if (manualDiscount) console.log('[SCRAPER] Manual discount override active.');
+        const externalDiscount = homepageDiscount || instagramDiscount || manualDiscount;
 
         console.log(`[SCRAPER] Page fetched. Length: ${data.length} chars.`);
         const $ = cheerio.load(data);
@@ -208,7 +230,7 @@ async function scrapePrices() {
         // homepage carousel or the Instagram cross-check confirms today is a
         // discount day. The downstream client picks this up via DISCOUNT_MARKER_RE.
         if (externalDiscount && results.length > 0) {
-            console.log(`[SCRAPER] External discount confirmed (homepage=${homepageDiscount}, instagram=${instagramDiscount}); marking ${results.length} rows.`);
+            console.log(`[SCRAPER] External discount confirmed (homepage=${homepageDiscount}, instagram=${instagramDiscount}, manual=${manualDiscount}); marking ${results.length} rows.`);
             for (const r of results) {
                 r.location = DISCOUNT_MARKER;
             }
