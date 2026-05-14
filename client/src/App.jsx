@@ -426,9 +426,9 @@ const AddressChip = ({ addr, url }) => {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center text-gray-500 hover:text-blue-600 transition-colors"
+        className="inline-flex items-start text-gray-500 hover:text-blue-600 transition-colors"
       >
-        <MapPin size={10} className="text-green-500 shrink-0 mr-1" />
+        <MapPin size={10} className="text-green-500 shrink-0 mr-1 mt-0.5" />
         <span className="underline underline-offset-2">{addr}</span>
       </a>
       <button
@@ -1826,8 +1826,8 @@ export default function App() {
       {/* Disclaimer */}
       <div className="bg-blue-50 border-b border-blue-200">
         <div className="max-w-5xl mx-auto px-6 py-3">
-          <p className="text-sm text-blue-600 text-center font-medium flex items-center justify-center gap-1.5">
-            <AlertTriangle size={15} className="shrink-0" strokeWidth={2} />
+          <p className="text-sm text-blue-600 text-center font-medium flex items-start justify-center gap-1.5">
+            <AlertTriangle size={15} className="shrink-0 mt-0.5" strokeWidth={2} />
             {t('disclaimer')}
           </p>
         </div>
