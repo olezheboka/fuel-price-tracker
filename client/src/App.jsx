@@ -29,6 +29,13 @@ const DISCOUNT_COLOR = '#44D62C'; // Vibrant Pantone Green for discounts
 // marker injected by server/scraper.js (contains "samazināta cena").
 const DISCOUNT_MARKER_RE = /vis[āa]s[\s\S]*stacij[āa]s|samazin[āa]ta\s+cena/i;
 
+// Matches ONLY the server-injected marker from scraper.js (homepage / Instagram
+// / FORCE_DISCOUNT_TODAY override). The prices-page static text never uses
+// "samazināta cena". When present, this is authoritative — bypass the
+// heuristic price-drop gate, since external confirmation is independent of
+// how many cents the price actually moved (e.g. a 3¢/L Privātkarte discount).
+const EXTERNAL_DISCOUNT_RE = /samazin[āa]ta\s+cena/i;
+
 const lngs = {
   lv: { nativeName: 'Latviešu', flag: '🇱🇻' },
   ru: { nativeName: 'Русский', flag: '🇷🇺' },
@@ -793,14 +800,20 @@ const HistoryTable = React.memo(({
                 // Using requested shortened date format: dd.mm.yy
                 timeStr: `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${String(year).slice(-2)}`,
                 rawFuels: {},
-                hasDiscountLocation: false
+                hasDiscountLocation: false,
+                hasExternalDiscount: false
             });
         }
         const dayData = dayMap.get(dateKey);
         if (!dayData.rawFuels[e.type]) dayData.rawFuels[e.type] = [];
         dayData.rawFuels[e.type].push({ price: e.price, timestamp: e.timestamp });
-        if (!dayData.hasDiscountLocation && e.location && DISCOUNT_MARKER_RE.test(e.location)) {
-            dayData.hasDiscountLocation = true;
+        if (e.location) {
+            if (!dayData.hasDiscountLocation && DISCOUNT_MARKER_RE.test(e.location)) {
+                dayData.hasDiscountLocation = true;
+            }
+            if (!dayData.hasExternalDiscount && EXTERNAL_DISCOUNT_RE.test(e.location)) {
+                dayData.hasExternalDiscount = true;
+            }
         }
     });
 
@@ -828,6 +841,7 @@ const HistoryTable = React.memo(({
             timeStr: dayData.timeStr,
             fuels,
             hasDiscountLocation: dayData.hasDiscountLocation,
+            hasExternalDiscount: dayData.hasExternalDiscount,
             isDiscount: false
         };
     });
@@ -849,14 +863,29 @@ const HistoryTable = React.memo(({
     }
 
     // Finalize isDiscount — mirrors the chart's logic in processData.
-    // Marker + gasoline (95, 98) both dropped ≥4¢ day-over-day. No
-    // carry-forward: only the day with the visible day-over-day drop is the
-    // discount day, not the next day where price recovers.
+    //
+    // Two paths:
+    //   (1) External confirmation (hasExternalDiscount): server scraper saw
+    //       the neste.lv homepage banner / Instagram post / manual override
+    //       for that day. Authoritative — flag the day regardless of the
+    //       price-drop magnitude (Privātkarte discounts can be as small as
+    //       3¢/L, below the heuristic gate).
+    //   (2) Marker-only fallback (hasDiscountLocation without external):
+    //       require gasoline (95, 98) both dropped ≥4¢ day-over-day to avoid
+    //       false-positives from the prices-page static "visās stacijās" text
+    //       on normal days.
+    //
+    // No carry-forward: only the day with the visible day-over-day drop is
+    // the discount day, not the next day where price recovers.
     const MIN_DISCOUNT_DROP = 0.04;
     const EPSILON = 0.001;
     const GASOLINE_FUELS = ['Neste Futura 95', 'Neste Futura 98'];
-    for (let i = 1; i < rows.length; i++) {
-        if (!rows[i].hasDiscountLocation) continue;
+    for (let i = 0; i < rows.length; i++) {
+        if (rows[i].hasExternalDiscount) {
+            rows[i].isDiscount = true;
+            continue;
+        }
+        if (i === 0 || !rows[i].hasDiscountLocation) continue;
         const prev = rows[i - 1];
         const curr = rows[i];
         const gasolineDropped = GASOLINE_FUELS.every(f => {
@@ -1598,11 +1627,17 @@ export default function App() {
         formattedTime = `${startStr} - ${endStr}`;
       }
 
-      // Detect discount location: any fuel type in this period has a discount marker
-      // in its location field. See DISCOUNT_MARKER_RE for the supported phrasings.
+      // Detect discount markers: any fuel type in this period has a discount
+      // marker in its location field. See DISCOUNT_MARKER_RE (broad) and
+      // EXTERNAL_DISCOUNT_RE (server-confirmed only — authoritative).
       const hasDiscountLocation = Object.values(data).some(fuelData =>
         fuelData.prices.some(p =>
           p.location && DISCOUNT_MARKER_RE.test(p.location)
+        )
+      );
+      const hasExternalDiscount = Object.values(data).some(fuelData =>
+        fuelData.prices.some(p =>
+          p.location && EXTERNAL_DISCOUNT_RE.test(p.location)
         )
       );
 
@@ -1611,6 +1646,7 @@ export default function App() {
         periodKey,
         formattedTime,
         hasDiscountLocation,
+        hasExternalDiscount,
         isDiscount: false, // Will be finalized in second pass after sorting
       };
 
@@ -1647,10 +1683,15 @@ export default function App() {
 
     const sorted = result.sort((a, b) => a.date - b.date);
 
-    // Second pass: finalize isDiscount. A period is a discount when both:
-    //   1. It has the marker (hasDiscountLocation), AND
-    //   2. Both gasoline fuels (95, 98) dropped ≥4¢ vs the previous period
-    //      (using latest OR intra-period min).
+    // Second pass: finalize isDiscount. Two paths:
+    //   (1) External confirmation (hasExternalDiscount): server scraper saw
+    //       the neste.lv homepage / Instagram post / manual override.
+    //       Authoritative — flag regardless of price-drop magnitude
+    //       (Privātkarte discounts can be as small as 3¢/L).
+    //   (2) Marker-only fallback: requires both 95 and 98 dropped ≥4¢ vs the
+    //       previous period (using latest OR intra-period min) to avoid
+    //       false-positives from the prices-page static "visās stacijās"
+    //       wording.
     //
     // Why gasoline-only for the drop gate: diesel drops are inconsistent on
     // real discount days (sometimes only 1-2¢, e.g. 2026-04-28) while 95 and
@@ -1666,8 +1707,12 @@ export default function App() {
     const MIN_DISCOUNT_DROP = 0.04;
     const EPSILON = 0.001;
     const GASOLINE_FUELS = ['Neste Futura 95', 'Neste Futura 98'];
-    for (let i = 1; i < sorted.length; i++) {
-      if (!sorted[i].hasDiscountLocation) continue;
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].hasExternalDiscount) {
+        sorted[i].isDiscount = true;
+        continue;
+      }
+      if (i === 0 || !sorted[i].hasDiscountLocation) continue;
       const prev = sorted[i - 1];
       const curr = sorted[i];
       const gasolineDropped = GASOLINE_FUELS.every(fuel => {
