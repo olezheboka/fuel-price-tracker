@@ -132,33 +132,43 @@ function toRigaDateKey(timestamp) {
     return rigaDateFormatter.format(date); // 'YYYY-MM-DD'
 }
 
-// Mirror the client's discount-marker regex (DISCOUNT_MARKER_RE in
-// client/src/App.jsx). Matches both the static prices-page "visās stacijās"
-// text and the scraper-injected "samazināta cena" external-confirmation marker.
+// Mirror the client's discount-marker regexes (DISCOUNT_MARKER_RE and
+// EXTERNAL_DISCOUNT_RE in client/src/App.jsx). The broad regex matches both
+// the static prices-page "visās stacijās" text and the scraper-injected
+// "samazināta cena" external-confirmation marker; the external regex matches
+// only the latter. The client treats them differently — external confirmation
+// flags the day regardless of price drop, while the broad marker requires a
+// ≥4¢ heuristic — so the dedup must preserve a row carrying EACH kind.
 const DISCOUNT_MARKER_RE = /vis[āa]s[\s\S]*stacij[āa]s|samazin[āa]ta\s+cena/i;
-const hasMarker = (loc) => !!loc && DISCOUNT_MARKER_RE.test(loc);
+const EXTERNAL_DISCOUNT_RE = /samazin[āa]ta\s+cena/i;
+const hasBroadMarker = (loc) => !!loc && DISCOUNT_MARKER_RE.test(loc);
+const hasExternalMarker = (loc) => !!loc && EXTERNAL_DISCOUNT_RE.test(loc);
 
-// Within each (Riga-date, fuel-type) bucket, keep distinct price-change points:
-// the first scrape of the day, plus any later scrape whose price differs from
-// the previously kept one. Additionally, keep a scrape where the discount
-// marker appears mid-day even at the same price — otherwise the daily snapshot
-// loses the only evidence of a discount day (the homepage banner usually shows
-// up after the day's first scrape). Stable non-discount days still collapse
-// to 1 row; change/discount days keep 2+ rows so the chart tooltip can show
-// intra-day price history and the chart can still highlight discount days.
+// Within each (Riga-date, fuel-type) bucket, keep distinct change points:
+// the first scrape, every price change, and the first scrape carrying each
+// kind of discount marker. Stable non-discount days still collapse to 1 row;
+// discount and change days keep 2-3 rows so the chart tooltip can show
+// intra-day history and the chart can still highlight discount days.
 function deduplicateHistory(rows) {
     const toIso = (t) => (t instanceof Date ? t.toISOString() : String(t));
     const sorted = [...rows].sort((a, b) => (toIso(a.timestamp) < toIso(b.timestamp) ? -1 : 1));
-    const lastKeptByBucket = new Map(); // `${date}::${type}` -> last kept row
+    const bucketState = new Map(); // key -> { lastRow, broadSeen, externalSeen }
     const kept = [];
     for (const row of sorted) {
         const key = `${toRigaDateKey(row.timestamp)}::${row.type}`;
-        const last = lastKeptByBucket.get(key);
-        const priceChanged = !last || Math.abs(row.price - last.price) > 0.0001;
-        const markerAppeared = !!last && !hasMarker(last.location) && hasMarker(row.location);
-        if (priceChanged || markerAppeared) {
+        const state = bucketState.get(key);
+        const rowBroad = hasBroadMarker(row.location);
+        const rowExternal = hasExternalMarker(row.location);
+        const priceChanged = !state || Math.abs(row.price - state.lastRow.price) > 0.0001;
+        const broadAppeared = !!state && !state.broadSeen && rowBroad;
+        const externalAppeared = !!state && !state.externalSeen && rowExternal;
+        if (!state || priceChanged || broadAppeared || externalAppeared) {
             kept.push(row);
-            lastKeptByBucket.set(key, row);
+            bucketState.set(key, {
+                lastRow: row,
+                broadSeen: (state ? state.broadSeen : false) || rowBroad,
+                externalSeen: (state ? state.externalSeen : false) || rowExternal,
+            });
         }
     }
     return kept;
