@@ -429,7 +429,7 @@ const AddressChip = ({ addr, url }) => {
         className="inline-flex items-start text-gray-500 hover:text-blue-600 transition-colors"
       >
         <MapPin size={10} className="text-green-500 shrink-0 mr-1 mt-0.5" />
-        <span className="underline underline-offset-2">{addr}</span>
+        <span className="underline underline-offset-2 whitespace-nowrap">{addr}</span>
       </a>
       <button
         onClick={handleCopy}
