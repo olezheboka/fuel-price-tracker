@@ -138,16 +138,16 @@ export default function PriceChangeCards({ historyData, latestPrices, selectedFu
         const cents = num * 100;
         const pctNum = parseFloat(pct);
         let colorClass = "text-blue-600";
-        let bgClass = "bg-blue-50";
+        let bgClass = "bg-blue-100/70";
         let Icon = Minus;
 
         if (num > 0.001) {
             colorClass = "text-red-500";
-            bgClass = "bg-red-50";
+            bgClass = "bg-red-100/70";
             Icon = TrendingUp;
         } else if (num < -0.001) {
             colorClass = "text-green-500";
-            bgClass = "bg-green-50";
+            bgClass = "bg-green-100/70";
             Icon = TrendingDown;
         }
 

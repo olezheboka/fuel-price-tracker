@@ -169,7 +169,7 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
 
 // Clean Card Component
 const Card = ({ children, className }) => (
-  <div className={twMerge("bg-white rounded-2xl p-5", className)}>
+  <div className={twMerge("bg-white rounded-2xl p-5 shadow-[0_1px_8px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)]", className)}>
     {children}
   </div>
 );
@@ -179,7 +179,7 @@ const Skeleton = ({ className }) => (
 );
 
 const FuelCardSkeleton = () => (
-  <div className="rounded-xl p-3 sm:p-4 border-l-4 border-l-gray-200 bg-[#FCFCFD] shadow-sm ring-1 ring-gray-100">
+  <div className="rounded-xl p-3 sm:p-4 border-l-4 border-l-gray-200 bg-[#FCFCFD] shadow-[0_2px_6px_rgba(0,0,0,0.06)] ring-1 ring-gray-100">
     <Skeleton className="h-3 w-12 mb-1" />
     <Skeleton className="h-6 w-20 mb-1.5" />
     <Skeleton className="h-3 w-28" />
@@ -210,7 +210,7 @@ const InsightsSkeleton = () => (
 const HistorySummarySkeleton = () => (
   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
     {[1, 2, 3, 4].map(i => (
-      <div key={i} className="rounded-xl p-3 sm:p-4 border-l-4 border-l-gray-200 bg-[#FCFCFD] shadow-sm ring-1 ring-gray-100">
+      <div key={i} className="rounded-xl p-3 sm:p-4 border-l-4 border-l-gray-200 bg-[#FCFCFD] shadow-[0_2px_6px_rgba(0,0,0,0.06)] ring-1 ring-gray-100">
         <Skeleton className="h-3 w-12 mb-1" />
         <Skeleton className="h-7 w-24 mb-1.5" />
         <Skeleton className="h-4 w-20 rounded-full mb-2" />
@@ -478,7 +478,7 @@ const FuelCard = ({ type, price, location }) => {
 
   return (
     <div
-      className="rounded-xl p-3 sm:p-4 border-l-4 bg-[#FCFCFD] shadow-sm ring-1 ring-gray-100"
+      className="rounded-xl p-3 sm:p-4 border-l-4 bg-[#FCFCFD] shadow-[0_2px_6px_rgba(0,0,0,0.06)] ring-1 ring-gray-100"
       style={{ borderLeftColor: color }}
     >
       <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-1" style={{ color }}>
@@ -1027,7 +1027,7 @@ const HistoryTable = React.memo(({
                     return (
                       <div
                         key={fuel}
-                        className="rounded-xl p-3 sm:p-4 border-l-4 bg-[#FCFCFD] shadow-sm ring-1 ring-gray-100"
+                        className="rounded-xl p-3 sm:p-4 border-l-4 bg-[#FCFCFD] shadow-[0_2px_6px_rgba(0,0,0,0.06)] ring-1 ring-gray-100"
                         style={{ borderLeftColor: FUEL_COLORS[fuel] }}
                       >
                         <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: FUEL_COLORS[fuel] }}>
