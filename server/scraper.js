@@ -11,6 +11,17 @@ const INSTAGRAM_RSS = 'https://rsshub.app/instagram/user/neste_latvija';
 // Picked up downstream by client/src/App.jsx DISCOUNT_MARKER_RE.
 const DISCOUNT_MARKER = 'Visās Neste DUS degvielai samazināta cena (homepage)';
 
+// The prices page itself replaces the per-station DUS address list with a single
+// "price is equal across all stations" phrase on a unified-discount day. This is
+// the most reliable first-party signal — but it can also appear on a normal day
+// where every station happens to share a price, so we only treat it as a
+// discount when it coincides with a real day-over-day price drop (see scrapePrices).
+const UNIFIED_PRICE_RE = /vis[āa]s[\s\S]*stacij[āa]s[\s\S]*(cena\s+vien[āa]da|samazin)/i;
+
+// Minimum day-over-day drop (€/L) on any single fuel to confirm a discount when
+// only the unified-price text is present. Mirrors client MIN_DISCOUNT_DROP.
+const MIN_DISCOUNT_DROP = 0.04;
+
 const SCRAPER_USER_AGENT =
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -47,15 +58,21 @@ async function detectHomepageDiscount() {
             timeout: 8000
         });
         const text = cheerio.load(data).text().replace(/\s+/g, ' ');
-        const m = text.match(/Šodien\s*\(\s*(\d{1,2})\.(\d{1,2})\.?\s*\)\s*[\s\S]{0,200}samazin[āa]ta\s+cena/i);
-        if (!m) {
+        // Relaxed: any "samazināta cena" mention on the homepage indicates a
+        // discount banner. We don't require the strict "Šodien (DD.MM.)" wording
+        // (it changes), but to guard against a stale/cached banner we require
+        // today's Riga date (DD.MM) to appear somewhere in the page text.
+        if (!/samazin[āa]ta\s+cena/i.test(text)) {
             const snippet = text.slice(0, 200).replace(/"/g, "'");
             console.log(`[SCRAPER] Homepage discount banner: not found. Page head: "${snippet}"`);
             return false;
         }
         const today = getRigaDateParts(new Date());
-        const matches = parseInt(m[1], 10) === today.day && parseInt(m[2], 10) === today.month;
-        console.log(`[SCRAPER] Homepage discount banner: ${matches ? 'today' : `stale (${m[1]}.${m[2]})`}`);
+        const dd = String(today.day).padStart(2, '0');
+        const mm = String(today.month).padStart(2, '0');
+        const dateRe = new RegExp(`\\b${today.day}\\.\\s?${today.month}\\.|\\b${dd}\\.\\s?${mm}\\.`);
+        const matches = dateRe.test(text);
+        console.log(`[SCRAPER] Homepage discount banner: found, today's date (${dd}.${mm}) ${matches ? 'present' : 'absent (stale?)'}`);
         return matches;
     } catch (err) {
         console.warn('[SCRAPER] Homepage check failed (non-fatal):', err.message);
@@ -226,11 +243,33 @@ async function scrapePrices() {
             console.warn("[SCRAPER] No fuel data found. Check the page structure.");
         }
 
-        // Override location with the canonical discount marker when either the
-        // homepage carousel or the Instagram cross-check confirms today is a
-        // discount day. The downstream client picks this up via DISCOUNT_MARKER_RE.
-        if (externalDiscount && results.length > 0) {
-            console.log(`[SCRAPER] External discount confirmed (homepage=${homepageDiscount}, instagram=${instagramDiscount}, manual=${manualDiscount}); marking ${results.length} rows.`);
+        // First-party signal: the prices page itself collapses to the unified
+        // "cena vienāda" text on a discount day. Confirm it with a real
+        // day-over-day drop on any fuel (vs the last stored price) so a normal
+        // day where stations merely share a price doesn't false-positive.
+        const unifiedText = results.some(r => UNIFIED_PRICE_RE.test(r.location));
+        let maxDrop = 0;
+        if (unifiedText && results.length > 0) {
+            for (const r of results) {
+                const prev = await db.get(
+                    'SELECT price FROM fuel_prices WHERE type = ? ORDER BY timestamp DESC LIMIT 1',
+                    [r.type]
+                );
+                if (prev && typeof prev.price === 'number') {
+                    maxDrop = Math.max(maxDrop, prev.price - r.price);
+                }
+            }
+        }
+        const pricesPageDiscount = unifiedText && maxDrop >= MIN_DISCOUNT_DROP - 0.001;
+        const externalDiscountFinal = externalDiscount || pricesPageDiscount;
+        console.log(`[SCRAPER] Discount signals: homepage=${homepageDiscount}, instagram=${instagramDiscount}, manual=${manualDiscount}, unifiedText=${unifiedText}, maxDrop=${maxDrop.toFixed(3)} => pricesPage=${pricesPageDiscount}`);
+
+        // Override location with the canonical discount marker when any signal
+        // confirms today is a discount day. The downstream client picks this up
+        // via DISCOUNT_MARKER_RE / EXTERNAL_DISCOUNT_RE (authoritative — bypasses
+        // the client-side price-drop heuristic).
+        if (externalDiscountFinal && results.length > 0) {
+            console.log(`[SCRAPER] Discount confirmed; marking ${results.length} rows.`);
             for (const r of results) {
                 r.location = DISCOUNT_MARKER;
             }
