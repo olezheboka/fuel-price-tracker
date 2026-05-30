@@ -407,7 +407,7 @@ const copyToClipboard = (text) => {
   return Promise.resolve();
 };
 
-const AddressChip = ({ addr, url }) => {
+const AddressChip = ({ addr, url, isMarker = false }) => {
   const [copied, setCopied] = useState(false);
   const { t } = useTranslation();
 
@@ -421,17 +421,20 @@ const AddressChip = ({ addr, url }) => {
   };
 
   return (
-    <span className="relative inline-flex items-center gap-0.5">
+    <span className={clsx("relative inline-flex items-center gap-0.5", isMarker && "basis-full min-w-0")}>
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-start text-gray-500 hover:text-blue-600 transition-colors"
+        className="inline-flex items-start text-gray-500 hover:text-blue-600 transition-colors min-w-0"
       >
         <MapPin size={10} className="text-green-500 shrink-0 mr-1 mt-0.5" />
-        <span className="underline underline-offset-2 whitespace-nowrap">{addr}</span>
+        {/* Specific addresses must not wrap mid-word (#6); the "same price
+            everywhere" marker is a long sentence and must wrap to fit the card. */}
+        <span className={clsx("underline underline-offset-2", isMarker ? "whitespace-normal break-words" : "whitespace-nowrap")}>{addr}</span>
       </a>
-      <button
+      {/* Copy makes sense for a real address, not for the marker sentence. */}
+      {!isMarker && <button
         onClick={handleCopy}
         className={clsx(
           "ml-1 p-0.5 rounded transition-all",
@@ -442,7 +445,7 @@ const AddressChip = ({ addr, url }) => {
         aria-label={`Copy ${addr}`}
       >
         {copied ? <Check size={10} /> : <Copy size={10} />}
-      </button>
+      </button>}
       <span
         className={clsx(
           "absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[9px] font-medium px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none z-10 transition-all duration-200",
@@ -494,7 +497,7 @@ const FuelCard = ({ type, price, location }) => {
             const url = isAllStationsSamePrice
               ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Neste DUS, Rīga, Latvia')}`
               : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Neste ${addr}, Rīga, Latvia`)}`;
-            return <AddressChip key={i} addr={addr} url={url} />;
+            return <AddressChip key={i} addr={addr} url={url} isMarker={isAllStationsSamePrice} />;
           })
         ) : (
           <span className="text-gray-400 italic">{t('location')}</span>
@@ -871,15 +874,16 @@ const HistoryTable = React.memo(({
     //       price-drop magnitude (Privātkarte discounts can be as small as
     //       3¢/L, below the heuristic gate).
     //   (2) Marker-only fallback (hasDiscountLocation without external):
-    //       require gasoline (95, 98) both dropped ≥4¢ day-over-day to avoid
+    //       require ANY fuel (incl. diesel) dropped ≥4¢ day-over-day to avoid
     //       false-positives from the prices-page static "visās stacijās" text
-    //       on normal days.
+    //       on normal days. Diesel-focused discounts (e.g. 2026-05-29: diesel
+    //       −11¢ while gasoline only −2¢) must qualify, so we check every fuel,
+    //       not just 95/98.
     //
     // No carry-forward: only the day with the visible day-over-day drop is
     // the discount day, not the next day where price recovers.
     const MIN_DISCOUNT_DROP = 0.04;
     const EPSILON = 0.001;
-    const GASOLINE_FUELS = ['Neste Futura 95', 'Neste Futura 98'];
     for (let i = 0; i < rows.length; i++) {
         if (rows[i].hasExternalDiscount) {
             rows[i].isDiscount = true;
@@ -888,15 +892,15 @@ const HistoryTable = React.memo(({
         if (i === 0 || !rows[i].hasDiscountLocation) continue;
         const prev = rows[i - 1];
         const curr = rows[i];
-        const gasolineDropped = GASOLINE_FUELS.every(f => {
+        const anyFuelDropped = allFuelTypes.some(f => {
             const prevFuel = prev.fuels[f];
             const currFuel = curr.fuels[f];
-            if (!prevFuel || !currFuel) return true;
+            if (!prevFuel || !currFuel) return false;
             const dropLatest = prevFuel.latest - currFuel.latest;
             const dropMin = prevFuel.latest - currFuel.min;
             return Math.max(dropLatest, dropMin) >= MIN_DISCOUNT_DROP - EPSILON;
         });
-        rows[i].isDiscount = gasolineDropped;
+        rows[i].isDiscount = anyFuelDropped;
     }
 
     return rows;
@@ -1706,7 +1710,6 @@ export default function App() {
     // briefly equals the discount price.
     const MIN_DISCOUNT_DROP = 0.04;
     const EPSILON = 0.001;
-    const GASOLINE_FUELS = ['Neste Futura 95', 'Neste Futura 98'];
     for (let i = 0; i < sorted.length; i++) {
       if (sorted[i].hasExternalDiscount) {
         sorted[i].isDiscount = true;
@@ -1715,16 +1718,18 @@ export default function App() {
       if (i === 0 || !sorted[i].hasDiscountLocation) continue;
       const prev = sorted[i - 1];
       const curr = sorted[i];
-      const gasolineDropped = GASOLINE_FUELS.every(fuel => {
+      // Any fuel (incl. diesel) dropping ≥4¢ day-over-day qualifies — diesel-
+      // focused discounts (e.g. 2026-05-29) move diesel far more than gasoline.
+      const anyFuelDropped = FUEL_KEYS.some(fuel => {
         const prevPrice = prev[fuel];
         const currLast = curr[fuel];
         const currMin = curr[`${fuel}_min`];
-        if (prevPrice === undefined || currLast === undefined) return true;
+        if (prevPrice === undefined || currLast === undefined) return false;
         const dropLast = prevPrice - currLast;
         const dropMin = currMin !== undefined ? prevPrice - currMin : -Infinity;
         return Math.max(dropLast, dropMin) >= MIN_DISCOUNT_DROP - EPSILON;
       });
-      sorted[i].isDiscount = gasolineDropped;
+      sorted[i].isDiscount = anyFuelDropped;
     }
 
     return sorted;
@@ -1912,7 +1917,7 @@ export default function App() {
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">{t('history')}</h2>
               </div>
               
-              <div className="flex items-center gap-4 sm:gap-6">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-6">
                 {/* Discount Toggle — only in day view */}
                 {graphInterval === 'days' && (
                   <button
