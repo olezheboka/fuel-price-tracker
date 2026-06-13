@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import "react-day-picker/src/style.css";
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList } from 'recharts';
 import { useTranslation } from 'react-i18next';
 // framer-motion removed
 import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet } from 'lucide-react';
@@ -572,7 +572,7 @@ const FuelGroupBlock = ({ group, rows }) => {
   return (
     <div className="rounded-2xl bg-white p-3 sm:p-4 shadow-[0_1px_8px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)]">
       <div className="mb-2 px-1">
-        <span className="inline-block text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
+        <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
           {t(group.labelKey)}
         </span>
       </div>
@@ -617,8 +617,122 @@ const StationChartTooltip = ({ active, payload }) => {
 
 // One fuel's mini line chart: a line per station, end dots, discount shading.
 // Shares the global brush window (visibleData) and period/discount settings.
+// End-of-line price pills. Rendered via a <LabelList> inside the chart's last
+// (transparent) <Line> so they paint ON TOP of every station line and dot — the
+// same layering the old single-chart badges had (recharts <Customized> renders
+// under the graphical items, which buried them). Each pill is collision-resolved
+// vertically and linked to its datapoint by a thin dashed leader, visually
+// distinct from the solid graph lines.
+const PILL_HEIGHT = 24;
+const PLOT_TOP = 14; // matches LineChart top margin
+const PLOT_BOTTOM = 138; // chart height (140) − bottom margin (2)
+
+// Build the vertically collision-resolved pill stack for the final datapoint.
+// Each item keeps its true datapoint y plus a labelY (pill center) after overlap
+// resolution; the whole stack is shifted as a unit to stay inside the plot box.
+function buildEndPillStack(activeSrcs, lastPoint, groupId, toY) {
+  const items = activeSrcs.map((src) => {
+    const price = lastPoint[`${groupId}__${src}`];
+    return {
+      src,
+      price,
+      color: (STATIONS[src] || {}).color || '#6b7280',
+      label: (STATIONS[src] || {}).label || src,
+      y: toY(price),
+      labelY: toY(price),
+    };
+  });
+  items.sort((a, b) => a.y - b.y);
+  const GAP = PILL_HEIGHT + 2;
+  const top = PLOT_TOP + PILL_HEIGHT / 2;
+  const bottom = PLOT_BOTTOM - PILL_HEIGHT / 2;
+  for (let iter = 0; iter < 50; iter++) {
+    let changed = false;
+    for (let i = 0; i < items.length - 1; i++) {
+      const a = items[i];
+      const b = items[i + 1];
+      const overlap = GAP - (b.labelY - a.labelY);
+      if (overlap > 0) {
+        a.labelY -= overlap / 2;
+        b.labelY += overlap / 2;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  const first = items[0].labelY;
+  const last = items[items.length - 1].labelY;
+  let shift = 0;
+  if (last - first > bottom - top) shift = top - first; // taller than box → anchor top
+  else if (first < top) shift = top - first;
+  else if (last > bottom) shift = bottom - last;
+  items.forEach((it) => {
+    it.labelY += shift;
+  });
+  return items;
+}
+
+// A single end-of-line price pill: white rounded chip with bold € price + the
+// station name. A dashed leader connects it to its datapoint whenever the pill
+// has been displaced from it (which, given the horizontal offset, is always).
+function EndPricePill({ item, dpX }) {
+  const priceText = `€${item.price.toFixed(3)}`;
+  const pillWidth = priceText.length * 7 + 12;
+  const pillX = dpX - pillWidth - 14;
+  const rightX = pillX + pillWidth + 2;
+  const dist = Math.hypot(dpX - rightX, item.y - item.labelY);
+  return (
+    <g>
+      {dist > 6 && (
+        <line
+          x1={dpX}
+          y1={item.y}
+          x2={rightX}
+          y2={item.labelY}
+          stroke={item.color}
+          strokeWidth={1}
+          strokeDasharray="2 2"
+          opacity={0.65}
+        />
+      )}
+      <g transform={`translate(${pillX}, ${item.labelY - PILL_HEIGHT / 2})`}>
+        <rect
+          width={pillWidth}
+          height={PILL_HEIGHT}
+          rx={8}
+          fill="rgba(255, 255, 255, 0.92)"
+          stroke="rgba(243, 244, 246, 0.7)"
+          strokeWidth={1}
+        />
+        <text
+          x={pillWidth / 2}
+          y={PILL_HEIGHT / 2 - 4}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={11}
+          fontWeight={700}
+          fill={item.color}
+        >
+          {priceText}
+        </text>
+        <text
+          x={pillWidth / 2}
+          y={PILL_HEIGHT / 2 + 8}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={8}
+          fontWeight={500}
+          fill={item.color}
+          opacity={0.6}
+        >
+          {item.label}
+        </text>
+      </g>
+    </g>
+  );
+}
+
 const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, showDiscounts, t }) => {
-  const lastIndex = visibleData.length - 1;
   const vals = [];
   visibleData.forEach(d => group.stations.forEach(s => {
     const v = d[`${group.id}__${s}`];
@@ -628,10 +742,20 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
   const dMax = vals.length ? Math.max(...vals) : 1;
   const pad = Math.max((dMax - dMin) * 0.18, 0.012);
 
+  // Price-pill geometry for the final datapoint. toY mirrors the (explicit,
+  // linear) YAxis domain → pixel mapping so pills line up with the real dots.
+  const lastPoint = visibleData[visibleData.length - 1] || {};
+  const activeSrcs = group.stations.filter((s) => typeof lastPoint[`${group.id}__${s}`] === 'number');
+  const anchorSrc = activeSrcs[0];
+  const domainMin = dMin - pad;
+  const domainSpan = (dMax + pad) - domainMin;
+  const toY = (price) => PLOT_TOP + (PLOT_BOTTOM - PLOT_TOP) * (1 - (price - domainMin) / domainSpan);
+  const lastIndex = visibleData.length - 1;
+
   return (
     <div>
       <div className="mb-1 px-1">
-        <span className="inline-block text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
+        <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
           {t(group.labelKey)}
         </span>
       </div>
@@ -669,15 +793,42 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
                   strokeWidth={2}
                   connectNulls
                   isAnimationActive={false}
-                  dot={(props) => {
-                    const { cx, cy, index } = props;
-                    if (index !== lastIndex || cx == null || cy == null) return null;
-                    return <circle key={`${src}-end`} cx={cx} cy={cy} r={4} fill={color} stroke="#fff" strokeWidth={1.5} />;
-                  }}
-                  activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+                  dot={{ r: 3, fill: color, strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
                 />
               );
             })}
+            {/* Transparent overlay line, rendered last so its LabelList paints the
+                price pills on top of every station line and dot. */}
+            {anchorSrc && domainSpan > 0 && (
+              <Line
+                key="__pills"
+                type="monotone"
+                dataKey={`${group.id}__${anchorSrc}`}
+                stroke="transparent"
+                strokeWidth={0}
+                dot={false}
+                activeDot={false}
+                connectNulls
+                isAnimationActive={false}
+                legendType="none"
+              >
+                <LabelList
+                  dataKey={`${group.id}__${anchorSrc}`}
+                  content={(props) => {
+                    if (!props || props.index !== lastIndex) return null;
+                    const stack = buildEndPillStack(activeSrcs, lastPoint, group.id, toY);
+                    return (
+                      <g>
+                        {stack.map((it) => (
+                          <EndPricePill key={it.src} item={it} dpX={props.x} />
+                        ))}
+                      </g>
+                    );
+                  }}
+                />
+              </Line>
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -1158,7 +1309,7 @@ const HistoryTable = React.memo(({
               {tableFuelGroups.map(group => (
                 <div key={group.id} className="space-y-2">
                   <div className="px-1">
-                    <span className="inline-block text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
+                    <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
                       {t(group.labelKey)}
                     </span>
                   </div>
@@ -1172,7 +1323,7 @@ const HistoryTable = React.memo(({
                           {group.cols.map((src, idx) => (
                             <th
                               key={src}
-                              className={clsx("text-right text-[9px] sm:text-xs font-bold uppercase tracking-wide px-1 sm:px-4 py-3 whitespace-nowrap", idx === group.cols.length - 1 && "pr-2 sm:pr-4")}
+                              className={clsx("text-right text-[11px] sm:text-xs font-bold uppercase tracking-wide px-1 sm:px-4 py-3 whitespace-nowrap", idx === group.cols.length - 1 && "pr-2 sm:pr-4")}
                               style={{ color: (STATIONS[src] || {}).color }}
                             >
                               {(STATIONS[src] || {}).label || src}
@@ -1227,8 +1378,8 @@ const HistoryTable = React.memo(({
                               return (
                                 <td key={group.cols[i]} className={clsx("text-right px-1 sm:px-4 pt-2.5 pb-1 align-middle", isLast && "pr-2 sm:pr-4")}>
                                   <span
-                                    className={clsx("inline-block text-[11px] sm:text-sm font-bold leading-tight tabular-nums rounded-md px-1.5 py-0.5", !isBest && "text-gray-700")}
-                                    style={isBest ? { color: CHEAPEST_COLOR, boxShadow: `inset 0 0 0 1.5px ${CHEAPEST_COLOR}` } : undefined}
+                                    className={clsx("inline-block text-[11px] sm:text-sm font-bold leading-tight tabular-nums rounded-md px-1.5 py-0.5", isBest ? "text-white" : "text-gray-700")}
+                                    style={isBest ? { backgroundColor: CHEAPEST_COLOR } : undefined}
                                   >
                                     €{s.avg.toFixed(3)}
                                   </span>
@@ -2096,7 +2247,7 @@ export default function App() {
                     {chartStations.map(src => (
                       <span key={src} className="flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: (STATIONS[src] || {}).color }} />
-                        <span className="text-xs font-semibold text-gray-700">{(STATIONS[src] || {}).label || src}</span>
+                        <span className="text-[11px] sm:text-xs font-semibold text-gray-700">{(STATIONS[src] || {}).label || src}</span>
                       </span>
                     ))}
                   </div>
