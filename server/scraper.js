@@ -137,7 +137,7 @@ async function detectInstagramDiscount() {
  * - A lowest price for today
  * - A list of station addresses (DUS) where this price is valid
  */
-async function scrapePrices() {
+async function scrapePrices(sharedTimestamp) {
     try {
         console.log(`[SCRAPER] Fetching ${PRICES_URL}...`);
         const [pricesRes, homepageDiscount, instagramDiscount] = await Promise.all([
@@ -162,7 +162,10 @@ async function scrapePrices() {
         const db = await openDb();
 
         const results = [];
-        const timestamp = new Date().toISOString();
+        // When run as part of the multi-station orchestrator, all sources share
+        // one timestamp so /api/prices/latest (WHERE timestamp = MAX(...)) returns
+        // every station from the same scrape cycle. Falls back to "now" when run alone.
+        const timestamp = sharedTimestamp || new Date().toISOString();
 
         // Debug: Log all tables found
         const tableCount = $('table').length;
@@ -278,8 +281,8 @@ async function scrapePrices() {
         // Save to database
         for (const res of results) {
             await db.run(
-                'INSERT INTO fuel_prices (type, price, location, timestamp) VALUES (?, ?, ?, ?)',
-                [res.type, res.price, res.location, res.timestamp]
+                'INSERT INTO fuel_prices (type, price, location, source, timestamp) VALUES (?, ?, ?, ?, ?)',
+                [res.type, res.price, res.location, 'Neste', res.timestamp]
             );
         }
 

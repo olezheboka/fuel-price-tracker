@@ -95,7 +95,7 @@ class MockDatabase {
         // console.log('[MockDB] all:', sql, params);
 
         // Very basic query handling for specific app queries
-        if (sql.includes('SELECT type, price, location, timestamp') && sql.includes('MAX(timestamp)')) {
+        if (sql.includes('MAX(timestamp)') && sql.includes('FROM fuel_prices')) {
             if (this.prices.length === 0) return [];
             // Find latest timestamp
             const latest = this.prices[this.prices.length - 1].timestamp;
@@ -118,13 +118,14 @@ class MockDatabase {
     async run(sql, params) {
         // console.log('[MockDB] run:', sql, params);
         if (sql.includes('INSERT INTO fuel_prices')) {
-            // Params: [type, price, location, timestamp]
-            const [type, price, location, timestamp] = params;
+            // Params: [type, price, location, source, timestamp]
+            const [type, price, location, source, timestamp] = params;
             this.prices.push({
                 id: this.prices.length + 1,
                 type,
                 price,
                 location,
+                source: source || 'Neste',
                 timestamp
             });
             // Keep memory check in bounds (last 1000 records)
@@ -204,9 +205,13 @@ async function initDb() {
                 type TEXT NOT NULL,
                 price REAL NOT NULL,
                 location TEXT,
+                source TEXT NOT NULL DEFAULT 'Neste',
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        // Migration for pre-existing tables (added with multi-station support).
+        // Existing Neste-only rows default to source='Neste'.
+        await db.exec(`ALTER TABLE fuel_prices ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'Neste';`);
     } else if (isSQLite) {
         // SQLite Schema
         await db.exec(`
@@ -215,9 +220,17 @@ async function initDb() {
                 type TEXT NOT NULL,
                 price REAL NOT NULL,
                 location TEXT,
+                source TEXT NOT NULL DEFAULT 'Neste',
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        // SQLite lacks "ADD COLUMN IF NOT EXISTS"; ignore the duplicate-column
+        // error when migrating a table that already has the column.
+        try {
+            await db.exec(`ALTER TABLE fuel_prices ADD COLUMN source TEXT NOT NULL DEFAULT 'Neste';`);
+        } catch (e) {
+            if (!/duplicate column/i.test(e.message)) throw e;
+        }
         console.log('[DB] SQLite Table initialized');
     } else {
         console.log('[DB] Mock DB initialized (No table creation needed)');

@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { initDb, openDb } = require('./db');
-const { scrapePrices } = require('./scraper');
+const { scrapeAll } = require('./scrapers');
 const { writeSnapshot, hydrateFromBlob, getMemory } = require('./snapshot');
 
 // Sanitize location strings that may contain MSO/CDATA artifacts from Neste's website
@@ -173,7 +173,7 @@ function deduplicateHistory(rows) {
     const bucketState = new Map(); // key -> { lastRow, broadSeen, externalSeen }
     const kept = [];
     for (const row of sorted) {
-        const key = `${toRigaDateKey(row.timestamp)}::${row.type}`;
+        const key = `${toRigaDateKey(row.timestamp)}::${row.source || 'Neste'}::${row.type}`;
         const state = bucketState.get(key);
         const rowBroad = hasBroadMarker(row.location);
         const rowExternal = hasExternalMarker(row.location);
@@ -199,15 +199,17 @@ async function updateSnapshot() {
         const db = await openDb();
 
         const latest = await db.all(`
-            SELECT type, price, location, timestamp
+            SELECT type, price, location, source, timestamp
             FROM fuel_prices
             WHERE timestamp = (SELECT MAX(timestamp) FROM fuel_prices)
         `);
 
+        // History now covers ALL stations (per-station Dynamics). The chart keeps
+        // itself Neste-only client-side by keying off Neste fuel-type names.
         const cutoff = new Date();
         cutoff.setFullYear(cutoff.getFullYear() - 1);
         const raw = await db.all(
-            'SELECT type, price, location, timestamp FROM fuel_prices WHERE timestamp > ? ORDER BY timestamp ASC',
+            'SELECT type, price, location, source, timestamp FROM fuel_prices WHERE timestamp > ? ORDER BY timestamp ASC',
             [cutoff.toISOString()]
         );
         const history = deduplicateHistory(raw);
@@ -314,7 +316,7 @@ app.get('/api/prices/latest', async (req, res) => {
         // 2. DB fallback (cold start without Blob, or before first scrape)
         const db = await openDb();
         const prices = await db.all(`
-            SELECT type, price, location, timestamp
+            SELECT type, price, location, source, timestamp
             FROM fuel_prices
             WHERE timestamp = (SELECT MAX(timestamp) FROM fuel_prices)
         `);
@@ -369,7 +371,8 @@ app.get('/api/prices/history', async (req, res) => {
         const cutoff = new Date();
         cutoff.setFullYear(cutoff.getFullYear() - 1);
 
-        let query = 'SELECT type, price, location, timestamp FROM fuel_prices WHERE timestamp > ?';
+        // History now covers all stations; chart stays Neste-only client-side.
+        let query = 'SELECT type, price, location, source, timestamp FROM fuel_prices WHERE timestamp > ?';
         const params = [cutoff.toISOString()];
         if (type) { query += ' AND type = ?'; params.push(type); }
         query += ' ORDER BY timestamp ASC';
@@ -415,7 +418,7 @@ app.get('/api/scrape', async (req, res) => {
         }
 
         if (!IS_PRODUCTION) console.log('Scrape triggered');
-        const results = await scrapePrices();
+        const results = await scrapeAll();
         lastScrapeTime = Date.now();
 
         // Refresh memory + Blob snapshot after every successful scrape.
@@ -459,7 +462,7 @@ app.get('/api/refresh', async (req, res) => {
         }
 
         if (!IS_PRODUCTION) console.log('[API] /api/refresh triggered scrape');
-        const results = await scrapePrices();
+        const results = await scrapeAll();
         lastScrapeTime = Date.now();
         if (results.length > 0) {
             await updateSnapshot();
