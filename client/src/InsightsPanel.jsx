@@ -69,7 +69,7 @@ export default function PriceChangeCards({ groups }) {
                 <div key={group.id}>
                     <div className="mb-1.5 px-1">
                         <span
-                            className="inline-block text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700"
+                            className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700"
                         >
                             {t(group.labelKey)}
                         </span>
@@ -93,7 +93,7 @@ export default function PriceChangeCards({ groups }) {
                                     key={st.key}
                                     className={clsx(GRID, 'gap-x-1 sm:gap-x-2 items-center rounded-lg px-2 py-1.5 odd:bg-gray-50/70')}
                                 >
-                                    <div className="text-xs sm:text-sm font-bold uppercase tracking-wide truncate" style={{ color: st.color }}>
+                                    <div className="text-[11px] sm:text-xs font-bold uppercase tracking-wide truncate" style={{ color: st.color }}>
                                         {st.label}
                                     </div>
                                     {changes.map((val, i) => (

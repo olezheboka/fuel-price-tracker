@@ -57,6 +57,18 @@ async function scrapeViada(timestamp) {
         });
 
         const deduped = dedupeLowest(results);
+
+        // D+ must always be the more expensive of Viada's two diesels. By image
+        // name `d_ecto` (ECTO diesel) is mapped to `pro` above, but Viada
+        // sometimes prices ECTO below regular `D`; in that case swap so D+ tracks
+        // the pricier product. (Per product owner: D+ = premium = costlier.)
+        const dRow = deduped.find((r) => r.type === 'diesel');
+        const proRow = deduped.find((r) => r.type === 'pro');
+        if (dRow && proRow && proRow.price < dRow.price) {
+            dRow.type = 'pro';
+            proRow.type = 'diesel';
+        }
+
         if (deduped.length) {
             const db = await openDb();
             await insertPrices(db, deduped, timestamp);
