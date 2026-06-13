@@ -782,8 +782,17 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
               );
               return areas;
             }, [])}
-            {group.stations.map(src => {
+            {/* Station lines. The anchor (a station present at the final
+                datapoint) is rendered LAST so its LabelList paints the price
+                pills on top of every line and dot. Attaching the pills to a real
+                line — instead of a separate transparent overlay — avoids a
+                duplicate dataKey that recharts would list twice in the tooltip. */}
+            {(anchorSrc
+              ? [...group.stations.filter((s) => s !== anchorSrc), anchorSrc]
+              : group.stations
+            ).map((src) => {
               const color = (STATIONS[src] || {}).color || '#6b7280';
+              const isAnchor = src === anchorSrc;
               return (
                 <Line
                   key={src}
@@ -795,40 +804,26 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
                   isAnimationActive={false}
                   dot={{ r: 3, fill: color, strokeWidth: 0 }}
                   activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
-                />
+                >
+                  {isAnchor && domainSpan > 0 && (
+                    <LabelList
+                      dataKey={`${group.id}__${src}`}
+                      content={(props) => {
+                        if (!props || props.index !== lastIndex) return null;
+                        const stack = buildEndPillStack(activeSrcs, lastPoint, group.id, toY);
+                        return (
+                          <g>
+                            {stack.map((it) => (
+                              <EndPricePill key={it.src} item={it} dpX={props.x} />
+                            ))}
+                          </g>
+                        );
+                      }}
+                    />
+                  )}
+                </Line>
               );
             })}
-            {/* Transparent overlay line, rendered last so its LabelList paints the
-                price pills on top of every station line and dot. */}
-            {anchorSrc && domainSpan > 0 && (
-              <Line
-                key="__pills"
-                type="monotone"
-                dataKey={`${group.id}__${anchorSrc}`}
-                stroke="transparent"
-                strokeWidth={0}
-                dot={false}
-                activeDot={false}
-                connectNulls
-                isAnimationActive={false}
-                legendType="none"
-              >
-                <LabelList
-                  dataKey={`${group.id}__${anchorSrc}`}
-                  content={(props) => {
-                    if (!props || props.index !== lastIndex) return null;
-                    const stack = buildEndPillStack(activeSrcs, lastPoint, group.id, toY);
-                    return (
-                      <g>
-                        {stack.map((it) => (
-                          <EndPricePill key={it.src} item={it} dpX={props.x} />
-                        ))}
-                      </g>
-                    );
-                  }}
-                />
-              </Line>
-            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -1142,11 +1137,13 @@ const HistoryTable = React.memo(({
     //       price-drop magnitude (Privātkarte discounts can be as small as
     //       3¢/L, below the heuristic gate).
     //   (2) Marker-only fallback (hasDiscountLocation without external):
-    //       require ANY fuel (incl. diesel) dropped ≥4¢ day-over-day to avoid
-    //       false-positives from the prices-page static "visās stacijās" text
-    //       on normal days. Diesel-focused discounts (e.g. 2026-05-29: diesel
-    //       −11¢ while gasoline only −2¢) must qualify, so we check every fuel,
-    //       not just 95/98.
+    //       require the marker to be NEW (absent the previous day) AND ANY fuel
+    //       (incl. diesel) dropped ≥4¢ day-over-day. The onset guard avoids
+    //       false-positives from the prices-page "visās stacijās / uniform
+    //       price" text lingering for days after a discount ends (e.g. it
+    //       persisted 2026-06-10→11 and the post-discount price settling read as
+    //       a fresh 6¢ drop). Diesel-focused discounts (e.g. 2026-05-29: diesel
+    //       −11¢ while gasoline only −2¢) must qualify, so we check every fuel.
     //
     // No carry-forward: only the day with the visible day-over-day drop is
     // the discount day, not the next day where price recovers.
@@ -1159,6 +1156,7 @@ const HistoryTable = React.memo(({
         }
         if (i === 0 || !rows[i].hasDiscountLocation) continue;
         const prev = rows[i - 1];
+        if (prev.hasDiscountLocation) continue; // marker lingering from a prior day, not a fresh onset
         const curr = rows[i];
         const anyFuelDropped = allFuelTypes.some(f => {
             const prevFuel = prev.fuels[f];
@@ -1952,14 +1950,18 @@ export default function App() {
     const sorted = result.sort((a, b) => a.date - b.date);
 
     // Finalize isDiscount (Neste-based). External confirmation is authoritative;
-    // otherwise require any Neste fuel to drop ≥4¢ vs the previous period. No
-    // carry-forward — only the day the price visibly dropped is the discount day.
+    // otherwise require the marker to be NEW (absent the previous period) and
+    // any Neste fuel to drop ≥4¢ vs that period. The onset guard stops the
+    // prices-page "uniform price" text from re-flagging days after a discount
+    // ends (e.g. it lingered 2026-06-10→11, where post-discount settling looked
+    // like a fresh 6¢ drop). No carry-forward.
     const MIN_DISCOUNT_DROP = 0.04;
     const EPSILON = 0.001;
     for (let i = 0; i < sorted.length; i++) {
       if (sorted[i].hasExternalDiscount) { sorted[i].isDiscount = true; continue; }
       if (i === 0 || !sorted[i].hasDiscountLocation) continue;
       const prev = sorted[i - 1];
+      if (prev.hasDiscountLocation) continue; // marker lingering from a prior day, not a fresh onset
       const curr = sorted[i];
       const anyFuelDropped = NESTE_KEYS.some(k => {
         const prevPrice = prev[k];
