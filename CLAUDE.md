@@ -78,17 +78,19 @@ Server expects `POSTGRES_URL` in `server/.env` for production database. SQLite i
 
 ## URL Parameter Schema
 
-All optional, used for deep linking and state sharing:
+All optional, used for deep linking and state sharing. Every param is **omitted when at its default** so a fresh visit's URL is bare — only non-default state appears:
 ```
-?lang=en&discounts=on&h_preset=7&h_start=2026-01-01&h_end=2026-04-09&stations=Neste,CircleK&fuels=95,diesel
+?lang=ru&discounts=off&h_preset=30&stations=Neste,CircleK&fuels=95,diesel&br_start=2026-04-01&br_end=2026-05-15
 ```
-- `lang` — UI language (`en`, `lv`, `ru`)
-- `discounts` — chart discount-shading toggle (`on`, `off`). The chart is day-granularity only — the old Days/Weeks/Months switcher (and its `period` param) were removed; the timeline range slider is the only range control.
-- `h_preset` — history period preset (`7`, `30`, `90`); **default `7`**; mutually exclusive with `h_start`/`h_end`
+- `lang` — UI language (`en`, `lv`, `ru`); **omitted when `en`** (the default). Always persisted to localStorage regardless.
+- `discounts` — chart discount-shading toggle; default is **on**, so the param appears **only as `discounts=off`** when toggled off.
+- `h_preset` — history period preset (`7`, `30`, `90`); **default `7`** (omitted from the URL when `7`); mutually exclusive with `h_start`/`h_end`
 - `h_start`, `h_end` — custom history date range (`YYYY-MM-DD`); only present when no preset is active
+- `br_start`, `br_end` — chart **timeline range slider** (Brush) window as Riga-local dates (`YYYY-MM-DD`); **omitted when the window is the default** (last 30 days / full range). Persisted as dates, not array indices, so a shared link restores the same visible window even after new hourly data shifts indices. On load they map back to the nearest indices (min span 7 days). The chart is day-granularity only — the old Days/Weeks/Months switcher (and its `period` param) were removed; this slider is the only chart range control.
 - `stations` — CSV station filter (`Neste`, `CircleK`, `Virsi`, `Viada`); omitted when all selected. ONE global filter driving the prices view AND all of analytics (chart, Dynamics, history table).
 - `fuels` — CSV fuel-group filter (`95`, `98`, `diesel`, `pro`, `gas`); omitted when all selected. Same global scope as `stations`.
-Graph, Dynamics, and Price History live in ONE merged "Analytics" card whose header is just the title — there is **no per-section fuel tab** (the old `ftab` param and `fuelTab` state were removed). All three subsections scope to `effectiveSelectedFuels`/`analyticsFuels` (= the global `fuels` filter ∩ what the selected stations sell), driven entirely by the sticky station/fuel filter bar. `HistoryTable` renders card-less (its parent provides the card); its "Price History" subsection header holds the date-range picker plus a `7`/`30`/`90`-day preset segmented control (default 7).
+- `afuel` — CSV of the fuel types shown in the Analytics card (`95`, `98`, `diesel`, `pro`, `gas`); **omitted when all available fuels are selected** (the default) or when only one fuel is available (control hidden).
+Graph, Dynamics, and Price History live in ONE merged "Analytics" card. Its header carries a **multi-select fuel dropdown** (the shared `MultiSelect` component, label `t('fuel_filter')` = "Топливо", `allLabel` "Все") letting you show one, several, or all fuel types across all three subsections at once — checkboxes + "Select all" + per-row "Only", no color dots. Options come from `analyticsFuelList` (= `analyticsFuels`: the global `fuels` filter ∩ what the selected stations sell); the control is hidden when ≤1 fuel remains. State is `analyticsFuelSelection` (raw Set, defaults to all, never empty); what's actually shown is `effectiveAnalyticsFuels` = the selection ∩ available, falling back to all available if that intersection is empty (so the view is never blank — derived in render, no setState-in-effect). All three subsections filter their groups by `effectiveAnalyticsFuels`. The top "cheapest prices" cards are unaffected and still show all globally-selected fuels. `HistoryTable` renders card-less (its parent provides the card); its "Price History" subsection header holds the date-range picker plus a `7`/`30`/`90`-day preset segmented control (default 7).
 
 State priority: URL params > localStorage > hardcoded defaults. (The old `fuel` single-fuel param for the Dynamics section was removed — Dynamics now follows the global `stations`/`fuels` filters.)
 

@@ -111,6 +111,23 @@ const initFilterSet = (paramKey, lsKey, all) => {
   return new Set(all);
 };
 
+// Extract Riga timezone date components without double-parsing.
+// Uses Intl to read year/month/day directly — immune to DST shifts.
+const getRigaDateParts = (timestamp) => {
+  const utcDate = new Date(timestamp);
+  const tz = 'Europe/Riga';
+  const year  = parseInt(utcDate.toLocaleString('en-US', { timeZone: tz, year: 'numeric' }));
+  const month = parseInt(utcDate.toLocaleString('en-US', { timeZone: tz, month: 'numeric' }));
+  const day   = parseInt(utcDate.toLocaleString('en-US', { timeZone: tz, day: 'numeric' }));
+  return { year, month, day };
+};
+
+// Format a timestamp as a Riga-local YYYY-MM-DD string (for the brush URL params).
+const fmtRigaYmd = (ts) => {
+  const { year, month, day } = getRigaDateParts(ts);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
 // Apple-style Segmented Control
 const SegmentedControl = ({ options, value, onChange, className, size = 'default' }) => {
   const [styles, setStyles] = useState({ left: 0, width: 0, opacity: 0 });
@@ -162,7 +179,7 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
     </div>
   );
 };
- 
+
   // Language Dropdown Component
   const LanguageDropdown = ({ lngs, currentLng, onChange, compact = false }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -183,7 +200,7 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={clsx(
-            "flex items-center gap-2 px-3 bg-gray-100/80 hover:bg-gray-200/80 transition-all duration-200 text-sm font-semibold text-gray-900 border border-transparent active:scale-95 shadow-sm",
+            "flex items-center gap-2 px-3 bg-gray-100/80 hover:bg-gray-200/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-all duration-200 text-sm font-semibold text-gray-900 border border-transparent active:scale-95 shadow-sm",
             compact ? "py-1.5 rounded-lg" : "py-2 rounded-xl"
           )}
         >
@@ -208,8 +225,8 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
                   setIsOpen(false);
                 }}
                 className={clsx(
-                  "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200",
-                  isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
+                  "w-full flex items-center justify-between px-3 py-2.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 transition-all duration-200",
+                  isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 )}
               >
                 <div className="flex items-center gap-2.5">
@@ -1548,6 +1565,36 @@ export default function App() {
   );
   const analyticsFuels = effectiveSelectedFuels;
 
+  // Analytics shows ONE fuel at a time, picked via a segmented control in the
+  // card header. The tabs offer only fuels in analyticsFuels, in canonical order.
+  const analyticsFuelList = useMemo(
+    () => FUEL_GROUPS.filter((g) => analyticsFuels.has(g.id)).map((g) => g.id),
+    [analyticsFuels]
+  );
+  // Multi-select of the fuel types to show in Analytics (one, several, or all).
+  // Initialized from the `afuel` CSV URL param, else all. Stored raw; what's
+  // actually shown is the intersection with the available fuels (below).
+  const [analyticsFuelSelection, setAnalyticsFuelSelection] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('afuel');
+    if (raw) {
+      const picked = raw.split(',').filter((f) => FUEL_GROUP_IDS.includes(f));
+      if (picked.length) return new Set(picked);
+    }
+    return new Set(FUEL_GROUP_IDS);
+  });
+  const toggleAnalyticsFuel = useCallback((value) => setAnalyticsFuelSelection((prev) => {
+    const next = new Set(prev);
+    if (next.has(value)) next.delete(value); else next.add(value);
+    return next.size === 0 ? prev : next; // never empty → never a blank analytics view
+  }), []);
+  // The fuels actually shown: the selection ∩ what's available. Falls back to
+  // all available if the intersection is empty, so the view is never blank.
+  const effectiveAnalyticsFuels = useMemo(() => {
+    const inter = analyticsFuelList.filter((id) => analyticsFuelSelection.has(id));
+    return new Set(inter.length ? inter : analyticsFuelList);
+  }, [analyticsFuelList, analyticsFuelSelection]);
+
   // Toggle a value; never allow an empty selection (keeps the view non-blank).
   const toggleStation = useCallback((value) => setSelectedStations((prev) => {
     const next = new Set(prev);
@@ -1694,59 +1741,17 @@ export default function App() {
   });
 
   const [brushIndices, setBrushIndices] = useState(null); // Controlled state for Brush
+  // Timeline window shared via URL (br_start/br_end). Parsed once, applied to the
+  // brush on first data load, then normal default-window behavior resumes.
+  const initialBrushDates = useMemo(() => {
+    const p = new URLSearchParams(window.location.search);
+    const s = p.get('br_start'), e = p.get('br_end');
+    return s && e ? { s, e } : null;
+  }, []);
   const previousPricesRef = React.useRef([]);
 
-  // Sync state to URL and localStorage
-  useEffect(() => {
-    // Create fresh params to avoid keeping deprecated parameters
-    const params = new URLSearchParams();
-
-    // Sync Language
-    const currentLang = i18n.language;
-    if (currentLang) {
-      params.set('lang', currentLang);
-      localStorage.setItem('i18nextLng', currentLang);
-    }
-
-    // Sync Discounts (chart is always day-granularity)
-    params.set('discounts', showDiscounts ? 'on' : 'off');
-
-    // Sync History Filters — use preset param when active, concrete dates otherwise
-    if (historyPreset) {
-      params.set('h_preset', historyPreset);
-      localStorage.setItem('historyPreset_v2', historyPreset);
-    } else {
-      localStorage.removeItem('historyPreset_v2');
-      if (historyStartDate && historyEndDate) {
-        params.set('h_start', historyStartDate);
-        params.set('h_end', historyEndDate);
-      }
-    }
-    localStorage.setItem('historyStartDate_v2', historyStartDate);
-    localStorage.setItem('historyEndDate_v2', historyEndDate);
-
-    // Sync station / fuel filters — omit the param when all are selected so the
-    // default state keeps the URL clean.
-    const allStations = STATION_ORDER.every((s) => selectedStations.has(s));
-    if (allStations) {
-      localStorage.removeItem('selectedStations');
-    } else {
-      const v = STATION_ORDER.filter((s) => selectedStations.has(s)).join(',');
-      params.set('stations', v);
-      localStorage.setItem('selectedStations', v);
-    }
-    const allFuels = FUEL_GROUP_IDS.every((f) => selectedFuels.has(f));
-    if (allFuels) {
-      localStorage.removeItem('selectedFuels');
-    } else {
-      const v = FUEL_GROUP_IDS.filter((f) => selectedFuels.has(f)).join(',');
-      params.set('fuels', v);
-      localStorage.setItem('selectedFuels', v);
-    }
-
-    const newRelativePathQuery = window.location.pathname + '?' + params.toString();
-    window.history.replaceState(null, '', newRelativePathQuery);
-  }, [i18n.language, showDiscounts, historyStartDate, historyEndDate, historyPreset, selectedStations, selectedFuels]);
+  // NOTE: the URL-sync effect lives further down (just before `return`) so it can
+  // reference chartDataFinal/brushIndices for the timeline (br_start/br_end) params.
 
   // Persist showDiscounts preference
   useEffect(() => {
@@ -1869,17 +1874,6 @@ export default function App() {
 
 
 
-
-  // Helper: extract Riga timezone date components without double-parsing
-  // Uses Intl to read year/month/day/weekday directly — immune to DST shifts
-  const getRigaDateParts = (timestamp) => {
-    const utcDate = new Date(timestamp);
-    const tz = 'Europe/Riga';
-    const year  = parseInt(utcDate.toLocaleString('en-US', { timeZone: tz, year: 'numeric' }));
-    const month = parseInt(utcDate.toLocaleString('en-US', { timeZone: tz, month: 'numeric' }));
-    const day   = parseInt(utcDate.toLocaleString('en-US', { timeZone: tz, day: 'numeric' }));
-    return { year, month, day };
-  };
 
   // Filter Data based on Interval and Group by Period (Day/Week/Month)
   // We keep a larger history window (e.g. 180 days) for the Brush, but the chart will default to showing recent data
@@ -2067,16 +2061,34 @@ export default function App() {
   // This avoids extra render cycles and lint errors associated with useEffect
   const [lastConfig, setLastConfig] = useState({ length: 0, interval: '' });
   if (chartDataFinal && (chartDataFinal.length !== lastConfig.length || graphInterval !== lastConfig.interval)) {
+    const isFirstDataLoad = lastConfig.length === 0;
     setLastConfig({ length: chartDataFinal.length, interval: graphInterval });
 
     let defaultVisibleCount = 30; // default for days
     if (graphInterval === 'weeks') defaultVisibleCount = 4;
     if (graphInterval === 'months') defaultVisibleCount = 3;
 
-    setBrushIndices({
-      startIndex: Math.max(0, chartDataFinal.length - defaultVisibleCount),
-      endIndex: chartDataFinal.length - 1
-    });
+    // On the first data load, honor a timeline window shared via the URL
+    // (br_start/br_end → indices). Afterwards fall back to the default window.
+    if (initialBrushDates && isFirstDataLoad && chartDataFinal.length) {
+      const lastIdx = chartDataFinal.length - 1;
+      let startIndex = chartDataFinal.findIndex((p) => fmtRigaYmd(p.date) >= initialBrushDates.s);
+      if (startIndex < 0) startIndex = 0;
+      let endIndex = lastIdx;
+      for (let i = lastIdx; i >= 0; i--) {
+        if (fmtRigaYmd(chartDataFinal[i].date) <= initialBrushDates.e) { endIndex = i; break; }
+      }
+      startIndex = Math.min(Math.max(0, startIndex), lastIdx);
+      endIndex = Math.min(Math.max(0, endIndex), lastIdx);
+      if (endIndex < startIndex) endIndex = startIndex;
+      if (endIndex - startIndex < 6) endIndex = Math.min(lastIdx, startIndex + 6); // Brush min span
+      setBrushIndices({ startIndex, endIndex });
+    } else {
+      setBrushIndices({
+        startIndex: Math.max(0, chartDataFinal.length - defaultVisibleCount),
+        endIndex: chartDataFinal.length - 1
+      });
+    }
   }
 
   const handleBrushChange = (newIndex) => {
@@ -2084,6 +2096,85 @@ export default function App() {
       setBrushIndices({ startIndex: newIndex.startIndex, endIndex: newIndex.endIndex });
     }
   };
+
+  // Sync state to URL and localStorage. Lives here (not with the other state) so it
+  // can read chartDataFinal/brushIndices for the timeline (br_start/br_end) params.
+  useEffect(() => {
+    // Create fresh params to avoid keeping deprecated parameters
+    const params = new URLSearchParams();
+
+    // Sync Language — persist to localStorage always, but omit the default ('en')
+    // from the URL so a fresh visit stays clean.
+    const currentLang = i18n.language;
+    if (currentLang) {
+      localStorage.setItem('i18nextLng', currentLang);
+      if (currentLang !== 'en') params.set('lang', currentLang);
+    }
+
+    // Sync Discounts — default is 'on', so only write the param when toggled off.
+    if (!showDiscounts) params.set('discounts', 'off');
+
+    // Sync History Filters — use preset param when active, concrete dates otherwise.
+    // The default preset ('7') is omitted from the URL to keep a fresh visit clean.
+    if (historyPreset) {
+      localStorage.setItem('historyPreset_v2', historyPreset);
+      if (historyPreset !== '7') params.set('h_preset', historyPreset);
+    } else {
+      localStorage.removeItem('historyPreset_v2');
+      if (historyStartDate && historyEndDate) {
+        params.set('h_start', historyStartDate);
+        params.set('h_end', historyEndDate);
+      }
+    }
+    localStorage.setItem('historyStartDate_v2', historyStartDate);
+    localStorage.setItem('historyEndDate_v2', historyEndDate);
+
+    // Sync station / fuel filters — omit the param when all are selected so the
+    // default state keeps the URL clean.
+    const allStations = STATION_ORDER.every((s) => selectedStations.has(s));
+    if (allStations) {
+      localStorage.removeItem('selectedStations');
+    } else {
+      const v = STATION_ORDER.filter((s) => selectedStations.has(s)).join(',');
+      params.set('stations', v);
+      localStorage.setItem('selectedStations', v);
+    }
+    const allFuels = FUEL_GROUP_IDS.every((f) => selectedFuels.has(f));
+    if (allFuels) {
+      localStorage.removeItem('selectedFuels');
+    } else {
+      const v = FUEL_GROUP_IDS.filter((f) => selectedFuels.has(f)).join(',');
+      params.set('fuels', v);
+      localStorage.setItem('selectedFuels', v);
+    }
+
+    // Sync the active Analytics fuel selection — only meaningful when there is more
+    // than one fuel to switch between (otherwise the control is hidden).
+    const selectedAvailable = analyticsFuelList.filter((id) => analyticsFuelSelection.has(id));
+    const allAnalyticsSelected = analyticsFuelList.length > 0 && selectedAvailable.length === analyticsFuelList.length;
+    if (analyticsFuelList.length > 1 && !allAnalyticsSelected && selectedAvailable.length) {
+      params.set('afuel', selectedAvailable.join(','));
+    }
+
+    // Sync the chart timeline window as dates — omit when it's the default
+    // (last 30 days / full range) so the URL stays clean.
+    if (brushIndices && chartDataFinal && chartDataFinal.length) {
+      const dStart = Math.max(0, chartDataFinal.length - 30);
+      const dEnd = chartDataFinal.length - 1;
+      if (!(brushIndices.startIndex === dStart && brushIndices.endIndex === dEnd)) {
+        const sPoint = chartDataFinal[brushIndices.startIndex];
+        const ePoint = chartDataFinal[brushIndices.endIndex];
+        if (sPoint && ePoint) {
+          params.set('br_start', fmtRigaYmd(sPoint.date));
+          params.set('br_end', fmtRigaYmd(ePoint.date));
+        }
+      }
+    }
+
+    const qs = params.toString();
+    const newRelativePathQuery = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', newRelativePathQuery);
+  }, [i18n.language, showDiscounts, historyStartDate, historyEndDate, historyPreset, selectedStations, selectedFuels, analyticsFuelSelection, analyticsFuelList, brushIndices, chartDataFinal]);
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-gray-900 pb-24">
@@ -2234,11 +2325,32 @@ export default function App() {
         <section>
           <Card className="p-0">
             <div className="rounded-t-2xl border-b border-gray-100 px-3 sm:px-6 py-2.5 sm:py-3">
-              {/* Title only. The Graph / Dynamics / Price History subsections are
-                  scoped by the global station/fuel filters from the sticky bar. */}
-              <div className="flex items-center gap-2 min-w-0">
-                <TrendingUp className="w-4 h-4 text-gray-400 shrink-0" />
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{t('analytics')}</h2>
+              {/* Title + one fuel-type segmented control scoping all three
+                  subsections (Graph / Dynamics / Price History). Tabs offer only
+                  the globally-filtered fuels; hidden when a single fuel is left. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <TrendingUp className="w-4 h-4 text-gray-400 shrink-0" />
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{t('analytics')}</h2>
+                </div>
+                {analyticsFuelList.length > 1 && (
+                  <div className="w-28 sm:w-36 shrink-0">
+                    <MultiSelect
+                      label={t('fuel_filter')}
+                      allLabel={t('all')}
+                      align="end"
+                      compact
+                      options={analyticsFuelList.map((id) => ({
+                        value: id,
+                        label: t(FUEL_GROUPS.find((g) => g.id === id).labelKey),
+                      }))}
+                      selected={analyticsFuelSelection}
+                      onToggle={toggleAnalyticsFuel}
+                      onToggleAll={() => setAnalyticsFuelSelection(new Set(analyticsFuelList))}
+                      onSelectOnly={(v) => setAnalyticsFuelSelection(new Set([v]))}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2290,7 +2402,7 @@ export default function App() {
               {historyLoading && <ChartLoadingOverlay />}
               {historyData.length > 0 && chartGroups.length > 0 ? (
                 <div className="space-y-4">
-                  {chartGroups.map(group => (
+                  {chartGroups.filter(group => effectiveAnalyticsFuels.has(group.id)).map(group => (
                     <FuelTrendChart
                       key={group.id}
                       group={group}
@@ -2329,7 +2441,7 @@ export default function App() {
                 <InsightsSkeleton />
               ) : (
                 <Suspense fallback={<InsightsSkeleton />}>
-                  <PriceChangeCards groups={insightsGroups} />
+                  <PriceChangeCards groups={insightsGroups.filter(g => effectiveAnalyticsFuels.has(g.id))} />
                 </Suspense>
               )}
             </div>
@@ -2347,7 +2459,7 @@ export default function App() {
                 activePreset={historyPreset}
                 loading={historyLoading}
                 selectedStations={selectedStations}
-                selectedFuels={analyticsFuels}
+                selectedFuels={effectiveAnalyticsFuels}
               />
             </div>
           </Card>
