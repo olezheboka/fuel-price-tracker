@@ -10,6 +10,7 @@ import { twMerge } from 'tailwind-merge';
 const PriceChangeCards = lazy(() => import('./InsightsPanel'));
 import { DateRangePicker } from './components/ui/DatePicker';
 import MultiSelect from './components/ui/MultiSelect';
+import ErrorBoundary from './ErrorBoundary';
 
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
 if (!import.meta.env.PROD) console.log('[DEBUG] API_BASE:', API_BASE);
@@ -681,7 +682,7 @@ function buildEndPillStack(activeSrcs, lastPoint, groupId, toY) {
     };
   });
   items.sort((a, b) => a.y - b.y);
-  const GAP = PILL_HEIGHT + 2;
+  const GAP = PILL_HEIGHT + 6; // a little breathing room between stacked chips
   const top = PLOT_TOP + PILL_HEIGHT / 2;
   const bottom = PLOT_BOTTOM - PILL_HEIGHT / 2;
   for (let iter = 0; iter < 50; iter++) {
@@ -758,7 +759,7 @@ function EndPricePill({ item, dpX }) {
           y={PILL_HEIGHT / 2 + 8}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={8}
+          fontSize={9}
           fontWeight={500}
           fill={item.color}
           opacity={1}
@@ -771,13 +772,28 @@ function EndPricePill({ item, dpX }) {
 }
 
 const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, showDiscounts, t }) => {
-  const vals = [];
-  visibleData.forEach(d => group.stations.forEach(s => {
+  // Defensive: a brush window can transiently slice to an empty set while state
+  // settles. Recharts dislikes an empty/degenerate-domain chart, so render a
+  // neutral placeholder rather than risk a throw that blanks the panel.
+  const safeData = Array.isArray(visibleData) ? visibleData : [];
+  let dMin = Infinity, dMax = -Infinity, hasVals = false;
+  safeData.forEach(d => group.stations.forEach(s => {
     const v = d[`${group.id}__${s}`];
-    if (typeof v === 'number') vals.push(v);
+    if (typeof v === 'number') { hasVals = true; if (v < dMin) dMin = v; if (v > dMax) dMax = v; }
   }));
-  const dMin = vals.length ? Math.min(...vals) : 0;
-  const dMax = vals.length ? Math.max(...vals) : 1;
+  if (!safeData.length) {
+    return (
+      <div>
+        <div className="mb-1 px-1">
+          <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
+            {t(group.labelKey)}
+          </span>
+        </div>
+        <div className="h-[140px] w-full" />
+      </div>
+    );
+  }
+  if (!hasVals) { dMin = 0; dMax = 1; }
   const pad = Math.max((dMax - dMin) * 0.18, 0.012);
 
   // Price-pill geometry for the final datapoint. toY mirrors the (explicit,
@@ -2403,8 +2419,12 @@ export default function App() {
               {historyData.length > 0 && chartGroups.length > 0 ? (
                 <div className="space-y-4">
                   {chartGroups.filter(group => effectiveAnalyticsFuels.has(group.id)).map(group => (
-                    <FuelTrendChart
+                    <ErrorBoundary
                       key={group.id}
+                      resetKeys={[brushIndices?.startIndex, brushIndices?.endIndex, showDiscounts, chartDataFinal.length]}
+                      fallback={<div className="h-[140px] w-full" aria-hidden="true" />}
+                    >
+                    <FuelTrendChart
                       group={group}
                       visibleData={visibleChartData}
                       chartDataFinal={chartDataFinal}
@@ -2412,6 +2432,7 @@ export default function App() {
                       showDiscounts={showDiscounts}
                       t={t}
                     />
+                    </ErrorBoundary>
                   ))}
                   {/* Shared station legend */}
                   <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 mt-1 border-t border-gray-100">
