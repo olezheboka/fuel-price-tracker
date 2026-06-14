@@ -18,6 +18,7 @@
     "i18next": "^25.7.3",
     "lucide-react": "^0.562.0",
     "postcss": "^8.5.6",
+    "posthog-js": "^1.386.6",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
