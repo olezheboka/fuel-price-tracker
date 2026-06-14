@@ -4,7 +4,7 @@ import { ChevronDown, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 
-export default function MultiSelect({ label, options, selected, onToggle, onToggleAll, allLabel, align = 'start', compact = false }) {
+export default function MultiSelect({ label, options, selected, onToggle, onToggleAll, onSelectOnly, allLabel, align = 'start', compact = false }) {
   const { t } = useTranslation();
   const allSelected = options.every((o) => selected.has(o.value));
   const noneSelected = options.every((o) => !selected.has(o.value));
@@ -49,27 +49,38 @@ export default function MultiSelect({ label, options, selected, onToggle, onTogg
         {options.map((o) => {
           const checked = selected.has(o.value);
           return (
-            <button
+            <div
               key={o.value}
-              type="button"
-              onClick={() => onToggle(o.value)}
-              className="w-full flex items-center justify-between gap-3 rounded-lg px-2.5 py-2 hover:bg-gray-50 active:scale-[0.99] transition-all"
+              className="flex items-center gap-1 rounded-lg pl-2.5 pr-1.5 hover:bg-gray-50"
             >
-              <span className="flex items-center gap-2 min-w-0">
-                {o.color && (
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: o.color }} />
-                )}
+              <button
+                type="button"
+                onClick={() => onToggle(o.value)}
+                className="flex-1 min-w-0 py-2 text-left active:scale-[0.99] transition-transform"
+              >
                 <span className="text-sm font-medium text-gray-800 truncate">{o.label}</span>
-              </span>
-              <span
+              </button>
+              {onSelectOnly && (
+                <button
+                  type="button"
+                  onClick={() => onSelectOnly(o.value)}
+                  className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-blue-600 px-1.5 py-1 rounded-md transition-colors"
+                >
+                  {t('only')}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onToggle(o.value)}
+                aria-label={o.label}
                 className={clsx(
-                  'flex items-center justify-center w-5 h-5 rounded-md border transition-colors shrink-0',
+                  'shrink-0 flex items-center justify-center w-5 h-5 rounded-md border transition-colors',
                   checked ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 text-transparent'
                 )}
               >
                 <Check size={13} strokeWidth={3} />
-              </span>
-            </button>
+              </button>
+            </div>
           );
         })}
       </PopoverContent>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import "react-day-picker/src/style.css";
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList, ErrorBar } from 'recharts';
 import { useTranslation } from 'react-i18next';
 // framer-motion removed
 import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet } from 'lucide-react';
@@ -593,21 +593,42 @@ const StationChartTooltip = ({ active, payload }) => {
   const dateStr = date
     ? new Date(date).toLocaleDateString('lv-LV', { timeZone: 'Europe/Riga', day: '2-digit', month: '2-digit', year: '2-digit' })
     : '';
-  const rows = payload.filter(p => typeof p.value === 'number').sort((a, b) => a.value - b.value);
+  // Keep numeric rows for known stations only (excludes the pills overlay line,
+  // which keys off a synthetic `${id}__${src}_min` dataKey), de-duped by dataKey.
+  const seen = new Set();
+  const rows = payload
+    .filter(p => typeof p.value === 'number' && STATIONS[String(p.dataKey).split('__')[1]])
+    .filter(p => { const k = String(p.dataKey); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.value - b.value);
   if (!rows.length) return null;
+  const fmtTime = (ts) => new Date(ts).toLocaleTimeString('lv-LV', { timeZone: 'Europe/Riga', hour: '2-digit', minute: '2-digit', hour12: false });
   return (
     <div className="rounded-lg bg-white/95 backdrop-blur shadow-lg ring-1 ring-gray-100 px-3 py-2 text-xs">
       <div className="font-semibold text-gray-400 mb-1 tabular-nums">{dateStr}</div>
       {rows.map(p => {
         const src = String(p.dataKey).split('__')[1];
         const st = STATIONS[src] || { label: src, color: p.stroke };
+        const history = p.payload[`${p.dataKey}_history`] || [];
+        const showHistory = history.length > 1; // only when the price moved within the day
         return (
-          <div key={p.dataKey} className="flex items-center justify-between gap-4">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
-              <span className="font-medium text-gray-700">{st.label}</span>
-            </span>
-            <span className="font-bold tabular-nums text-gray-900">€{p.value.toFixed(3)}</span>
+          <div key={p.dataKey} className="py-0.5">
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
+                <span className="font-medium text-gray-700">{st.label}</span>
+              </span>
+              <span className="font-bold tabular-nums text-gray-900">€{p.value.toFixed(3)}</span>
+            </div>
+            {showHistory && (
+              <div className="mt-0.5 ml-3.5 pl-2 border-l border-gray-200 space-y-0.5">
+                {history.map((h, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 text-[10px] text-gray-400">
+                    <span className="tabular-nums">{fmtTime(h.timestamp)}</span>
+                    <span className="font-medium tabular-nums text-gray-500">€{h.price.toFixed(3)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -782,17 +803,10 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
               );
               return areas;
             }, [])}
-            {/* Station lines. The anchor (a station present at the final
-                datapoint) is rendered LAST so its LabelList paints the price
-                pills on top of every line and dot. Attaching the pills to a real
-                line — instead of a separate transparent overlay — avoids a
-                duplicate dataKey that recharts would list twice in the tooltip. */}
-            {(anchorSrc
-              ? [...group.stations.filter((s) => s !== anchorSrc), anchorSrc]
-              : group.stations
-            ).map((src) => {
+            {/* One line per station, each with an intraday min–max ErrorBar
+                whisker. */}
+            {group.stations.map((src) => {
               const color = (STATIONS[src] || {}).color || '#6b7280';
-              const isAnchor = src === anchorSrc;
               return (
                 <Line
                   key={src}
@@ -805,25 +819,50 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
                   dot={{ r: 3, fill: color, strokeWidth: 0 }}
                   activeDot={{ r: 5, fill: color, strokeWidth: 0 }}
                 >
-                  {isAnchor && domainSpan > 0 && (
-                    <LabelList
-                      dataKey={`${group.id}__${src}`}
-                      content={(props) => {
-                        if (!props || props.index !== lastIndex) return null;
-                        const stack = buildEndPillStack(activeSrcs, lastPoint, group.id, toY);
-                        return (
-                          <g>
-                            {stack.map((it) => (
-                              <EndPricePill key={it.src} item={it} dpX={props.x} />
-                            ))}
-                          </g>
-                        );
-                      }}
-                    />
-                  )}
+                  <ErrorBar
+                    dataKey={`${group.id}__${src}_range`}
+                    width={3}
+                    strokeWidth={1.5}
+                    stroke={color}
+                    direction="y"
+                  />
                 </Line>
               );
             })}
+            {/* Transparent overlay line rendered LAST so its LabelList paints the
+                price pills on top of every line, dot, and whisker. It keys off the
+                anchor's `_min` field — a DISTINCT dataKey from the real station
+                line — so recharts doesn't collide two layers on the same key, and
+                the StationChartTooltip filter (known stations only) hides it. */}
+            {anchorSrc && domainSpan > 0 && (
+              <Line
+                key="__pills"
+                type="monotone"
+                dataKey={`${group.id}__${anchorSrc}_min`}
+                stroke="transparent"
+                strokeWidth={0}
+                dot={false}
+                activeDot={false}
+                connectNulls
+                isAnimationActive={false}
+                legendType="none"
+              >
+                <LabelList
+                  dataKey={`${group.id}__${anchorSrc}_min`}
+                  content={(props) => {
+                    if (!props || props.index !== lastIndex) return null;
+                    const stack = buildEndPillStack(activeSrcs, lastPoint, group.id, toY);
+                    return (
+                      <g>
+                        {stack.map((it) => (
+                          <EndPricePill key={it.src} item={it} dpX={props.x} />
+                        ))}
+                      </g>
+                    );
+                  }}
+                />
+              </Line>
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -1938,10 +1977,26 @@ export default function App() {
         isDiscount: false, // finalized in second pass after sorting
       };
 
-      // Each station series → the period's LAST price (the plotted value).
+      // Each station series → the period's LAST price (the plotted line value),
+      // plus the intraday min/max (drawn as an ErrorBar whisker) and the list of
+      // distinct within-day price changes with timestamps (shown in the
+      // tooltip), so all updates within a day are visible like the pre-redesign
+      // chart. Server-side dedup already collapses unchanged consecutive scrapes.
       Object.keys(data.series).forEach(ck => {
         const sortedItems = data.series[ck].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        entry[ck] = sortedItems[sortedItems.length - 1].price;
+        const prices = sortedItems.map(p => p.price);
+        const last = prices[prices.length - 1];
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        entry[ck] = last;
+        entry[`${ck}_min`] = min;
+        entry[`${ck}_max`] = max;
+        // Only attach a whisker range when the price actually moved within the
+        // period; otherwise leave it unset so the ErrorBar draws nothing.
+        if (max - min > 0.0001) entry[`${ck}_range`] = [last - min, max - last]; // [downErr, upErr] → min..max
+        entry[`${ck}_history`] = sortedItems
+          .filter((it, i, arr) => i === 0 || Math.abs(it.price - arr[i - 1].price) > 0.0001)
+          .map(d => ({ price: d.price, timestamp: d.timestamp }));
       });
 
       return entry;
@@ -2091,6 +2146,7 @@ export default function App() {
                   const allOn = presentStations.every((s) => selectedStations.has(s));
                   setSelectedStations(new Set(allOn ? [] : presentStations));
                 }}
+                onSelectOnly={(v) => setSelectedStations(new Set([v]))}
               />
               <MultiSelect
                 label={t('fuel_filter')}
@@ -2104,6 +2160,7 @@ export default function App() {
                   const allOn = presentFuels.every((g) => selectedFuels.has(g.id));
                   setSelectedFuels(new Set(allOn ? [] : presentFuels.map((g) => g.id)));
                 }}
+                onSelectOnly={(v) => setSelectedFuels(new Set([v]))}
               />
             </div>
           </div>

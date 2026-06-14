@@ -76,6 +76,7 @@ const resources = {
             },
             select_all: 'Select all',
             clear_all: 'Clear',
+            only: 'Only',
             discounts: 'Discounts',
             all_stations_same_price: 'Same price at all stations',
             avg_prices: {
@@ -177,6 +178,7 @@ const resources = {
             },
             select_all: 'Izvēlēties visus',
             clear_all: 'Notīrīt',
+            only: 'Tikai',
             discounts: 'Atlaides',
             all_stations_same_price: 'Visās stacijās cenas vienādas',
             avg_prices: {
@@ -278,6 +280,7 @@ const resources = {
             },
             select_all: 'Выбрать все',
             clear_all: 'Сбросить',
+            only: 'Только',
             discounts: 'Скидки',
             all_stations_same_price: 'Одинаковая цена на всех АЗС',
             avg_prices: {
