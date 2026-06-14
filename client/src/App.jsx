@@ -548,7 +548,7 @@ const StationRow = ({ rec, isCheapest }) => {
         <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wide" style={{ color: st.color }}>
           {st.label}
         </span>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 font-medium min-w-0">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 font-medium min-w-0">
           {addressList.length > 0 ? (
             addressList.map((addr, i) => {
               const url = isMarker
@@ -670,17 +670,24 @@ const PLOT_BOTTOM = 138; // chart height (140) − bottom margin (2)
 // Each item keeps its true datapoint y plus a labelY (pill center) after overlap
 // resolution; the whole stack is shifted as a unit to stay inside the plot box.
 function buildEndPillStack(activeSrcs, lastPoint, groupId, toY) {
-  const items = activeSrcs.map((src) => {
-    const price = lastPoint[`${groupId}__${src}`];
-    return {
-      src,
-      price,
-      color: (STATIONS[src] || {}).color || '#6b7280',
-      label: (STATIONS[src] || {}).label || src,
-      y: toY(price),
-      labelY: toY(price),
-    };
-  });
+  const items = activeSrcs
+    .map((src) => {
+      const price = lastPoint[`${groupId}__${src}`];
+      const y = toY(price);
+      return {
+        src,
+        price,
+        color: (STATIONS[src] || {}).color || '#6b7280',
+        label: (STATIONS[src] || {}).label || src,
+        y,
+        labelY: y,
+      };
+    })
+    // Drop any pill whose geometry isn't finite — a degenerate domain mid-drag
+    // could otherwise produce NaN coordinates and (downstream) an empty-stack read.
+    .filter((it) => typeof it.price === 'number' && Number.isFinite(it.y));
+  // Nothing to stack — bail before the items[0] reads below would throw.
+  if (items.length === 0) return [];
   items.sort((a, b) => a.y - b.y);
   const GAP = PILL_HEIGHT + 6; // a little breathing room between stacked chips
   const top = PLOT_TOP + PILL_HEIGHT / 2;
@@ -715,6 +722,12 @@ function buildEndPillStack(activeSrcs, lastPoint, groupId, toY) {
 // station name. A dashed leader connects it to its datapoint whenever the pill
 // has been displaced from it (which, given the horizontal offset, is always).
 function EndPricePill({ item, dpX }) {
+  // Guard against non-finite geometry during a rapid brush drag (transient
+  // degenerate domain → NaN). Skip the pill rather than emit NaN SVG attributes.
+  if (!item || !Number.isFinite(item.price) || !Number.isFinite(dpX) ||
+      !Number.isFinite(item.y) || !Number.isFinite(item.labelY)) {
+    return null;
+  }
   const priceText = `€${item.price.toFixed(3)}`;
   const pillWidth = priceText.length * 7 + 12;
   const pillX = dpX - pillWidth - 14;
@@ -776,8 +789,17 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
   // settles. Recharts dislikes an empty/degenerate-domain chart, so render a
   // neutral placeholder rather than risk a throw that blanks the panel.
   const safeData = Array.isArray(visibleData) ? visibleData : [];
+  // Only render stations that actually have a numeric value WITHIN the visible
+  // window. `group.stations` is derived from the full dataset, so in a historical
+  // window (e.g. before the non-Neste chains began scraping) it would otherwise
+  // render empty all-null <Line>/<ErrorBar> series plus a pills overlay keyed off
+  // them — degenerate input Recharts has to mount/unmount as the brush window
+  // crosses the sparse boundary during a fast drag. Scoping to the visible window
+  // removes that whole class of churn (the multi-provider regression).
+  const visibleStations = group.stations.filter((s) =>
+    safeData.some((d) => typeof d[`${group.id}__${s}`] === 'number'));
   let dMin = Infinity, dMax = -Infinity, hasVals = false;
-  safeData.forEach(d => group.stations.forEach(s => {
+  safeData.forEach(d => visibleStations.forEach(s => {
     const v = d[`${group.id}__${s}`];
     if (typeof v === 'number') { hasVals = true; if (v < dMin) dMin = v; if (v > dMax) dMax = v; }
   }));
@@ -799,7 +821,7 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
   // Price-pill geometry for the final datapoint. toY mirrors the (explicit,
   // linear) YAxis domain → pixel mapping so pills line up with the real dots.
   const lastPoint = visibleData[visibleData.length - 1] || {};
-  const activeSrcs = group.stations.filter((s) => typeof lastPoint[`${group.id}__${s}`] === 'number');
+  const activeSrcs = visibleStations.filter((s) => typeof lastPoint[`${group.id}__${s}`] === 'number');
   const anchorSrc = activeSrcs[0];
   const domainMin = dMin - pad;
   const domainSpan = (dMax + pad) - domainMin;
@@ -837,8 +859,9 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
               return areas;
             }, [])}
             {/* One line per station, each with an intraday min–max ErrorBar
-                whisker. */}
-            {group.stations.map((src) => {
+                whisker. Scoped to stations present in the visible window so we
+                never feed Recharts empty all-null series. */}
+            {visibleStations.map((src) => {
               const color = (STATIONS[src] || {}).color || '#6b7280';
               return (
                 <Line
@@ -951,6 +974,18 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, graphInterval })
     const startX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
     dragRef.current = { mode, startX, origStart: startIndex, origEnd: endIndex };
 
+    // Coalesce drag updates to one re-render per animation frame. A native drag
+    // fires mousemove at 60–120 Hz; without this, every event triggered a full
+    // re-render of all fuel charts (multi-line + ErrorBars + pills), faster than
+    // Recharts could settle — the storm behind the white-screen crash. We keep
+    // only the latest pending window and flush it once per frame.
+    let pending = null;
+    let rafId = null;
+    const flush = () => {
+      rafId = null;
+      if (pending) { onChange(pending); pending = null; }
+    };
+
     const onMove = (ev) => {
       const clientX = ev.clientX || (ev.touches && ev.touches[0]?.clientX) || 0;
       const drag = dragRef.current;
@@ -966,16 +1001,19 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, graphInterval })
         let newEnd = newStart + span;
         if (newStart < 0) { newStart = 0; newEnd = span; }
         if (newEnd >= totalCount) { newEnd = totalCount - 1; newStart = newEnd - span; }
-        onChange(clampIndices(newStart, newEnd));
+        pending = clampIndices(newStart, newEnd);
       } else if (drag.mode === 'left') {
-        onChange(clampIndices(drag.origStart + deltaIdx, drag.origEnd));
+        pending = clampIndices(drag.origStart + deltaIdx, drag.origEnd);
       } else if (drag.mode === 'right') {
-        onChange(clampIndices(drag.origStart, drag.origEnd + deltaIdx));
+        pending = clampIndices(drag.origStart, drag.origEnd + deltaIdx);
       }
+      if (rafId === null) rafId = requestAnimationFrame(flush);
     };
 
     const onUp = () => {
       dragRef.current = null;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      if (pending) { onChange(pending); pending = null; } // apply the final position
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('touchmove', onMove);
@@ -2402,15 +2440,22 @@ export default function App() {
             </div>
 
 
-            {/* Timeline Slider — above the chart */}
+            {/* Timeline Slider — above the chart. Wrapped in its own boundary so
+                a render fault here degrades to nothing instead of the whole app,
+                and auto-recovers on the next data/brush change. */}
             {chartDataFinal && chartDataFinal.length > 0 && brushIndices && (
-              <TimelineSlider
-                data={chartDataFinal}
-                startIndex={brushIndices.startIndex}
-                endIndex={brushIndices.endIndex}
-                onChange={handleBrushChange}
-                graphInterval={graphInterval}
-              />
+              <ErrorBoundary
+                resetKeys={[chartDataFinal.length, brushIndices.startIndex, brushIndices.endIndex]}
+                fallback={null}
+              >
+                <TimelineSlider
+                  data={chartDataFinal}
+                  startIndex={brushIndices.startIndex}
+                  endIndex={brushIndices.endIndex}
+                  onChange={handleBrushChange}
+                  graphInterval={graphInterval}
+                />
+              </ErrorBoundary>
             )}
 
             {/* Per-fuel charts — one line per selected station, shared zoom + discount shading */}
