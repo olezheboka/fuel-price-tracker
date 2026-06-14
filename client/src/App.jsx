@@ -713,7 +713,7 @@ function EndPricePill({ item, dpX }) {
           stroke={item.color}
           strokeWidth={1}
           strokeDasharray="2 2"
-          opacity={0.65}
+          opacity={1}
         />
       )}
       <g transform={`translate(${pillX}, ${item.labelY - PILL_HEIGHT / 2})`}>
@@ -721,8 +721,8 @@ function EndPricePill({ item, dpX }) {
           width={pillWidth}
           height={PILL_HEIGHT}
           rx={8}
-          fill="rgba(255, 255, 255, 0.92)"
-          stroke="rgba(243, 244, 246, 0.7)"
+          fill="#ffffff"
+          stroke="#e5e7eb"
           strokeWidth={1}
         />
         <text
@@ -744,7 +744,7 @@ function EndPricePill({ item, dpX }) {
           fontSize={8}
           fontWeight={500}
           fill={item.color}
-          opacity={0.6}
+          opacity={1}
         >
           {item.label}
         </text>
