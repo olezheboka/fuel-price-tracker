@@ -42,10 +42,10 @@ const resources = {
             },
             // Shortened names
             // Standardized names as requested
-            'Futura 95': '95',
-            'Futura 98': '98',
-            'Futura D': 'D',
-            'Pro Diesel': 'D+',
+            'Futura 95': '95 Petrol',
+            'Futura 98': '98 Petrol',
+            'Futura D': 'Diesel',
+            'Pro Diesel': 'Pro Diesel',
             'Gas': 'LPG',
 
             map_title: 'Station Prices',
@@ -144,10 +144,10 @@ const resources = {
             },
             // Shortened names
             // Standardized names as requested
-            'Futura 95': '95',
-            'Futura 98': '98',
-            'Futura D': 'D',
-            'Pro Diesel': 'D+',
+            'Futura 95': '95 Benzīns',
+            'Futura 98': '98 Benzīns',
+            'Futura D': 'Dīzelis',
+            'Pro Diesel': 'Pro dīzelis',
             'Gas': 'Gāze',
 
             map_title: 'Staciju Cenas',
@@ -246,10 +246,10 @@ const resources = {
             },
             // Shortened names
             // Standardized names as requested
-            'Futura 95': '95',
-            'Futura 98': '98',
-            'Futura D': 'D',
-            'Pro Diesel': 'D+',
+            'Futura 95': '95 бензин',
+            'Futura 98': '98 бензин',
+            'Futura D': 'Дизель',
+            'Pro Diesel': 'Про дизель',
             'Gas': 'Газ',
 
             map_title: 'Цены на АЗС',
