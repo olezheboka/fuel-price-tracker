@@ -11,7 +11,9 @@ import posthog from 'posthog-js';
 if (import.meta.env.PROD) {
   posthog.init('phc_mGRzF8BAsyYJo8ckgzQuGLupg3EyfsPavWDx83Uo4bfJ', {
     api_host: 'https://eu.i.posthog.com',
+    ui_host: 'https://eu.posthog.com',
     person_profiles: 'identified_only',
+    session_recording: { recordCrossOriginIframes: false },
   });
 }
 
