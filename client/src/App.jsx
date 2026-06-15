@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, lazy, Suspense } from 'react';
 import "react-day-picker/src/style.css";
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList, ErrorBar } from 'recharts';
@@ -927,7 +927,7 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
 };
 
 // Custom Timeline Slider — matches Apple-style spec from screenshot
-const TimelineSlider = ({ data, startIndex, endIndex, onChange, graphInterval }) => {
+const TimelineSlider = ({ data, startIndex, endIndex, onChange, onBrushStart, onBrushEnd, graphInterval }) => {
   const trackRef = React.useRef(null);
   const dragRef = React.useRef(null); // Stores drag state
 
@@ -973,6 +973,7 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, graphInterval })
     e.stopPropagation();
     const startX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
     dragRef.current = { mode, startX, origStart: startIndex, origEnd: endIndex };
+    if (onBrushStart) onBrushStart(); // mark drag active (stable boundary reset signal)
 
     // Coalesce drag updates to one re-render per animation frame. A native drag
     // fires mousemove at 60–120 Hz; without this, every event triggered a full
@@ -1018,6 +1019,7 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, graphInterval })
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onUp);
+      if (onBrushEnd) onBrushEnd(); // drag settled -> lets any errored chart boundary recover
     };
 
     window.addEventListener('mousemove', onMove);
@@ -1795,6 +1797,11 @@ export default function App() {
   });
 
   const [brushIndices, setBrushIndices] = useState(null); // Controlled state for Brush
+  // True only while a slider handle is actively dragged. Used as a *stable* error-
+  // boundary reset signal: it flips at most twice per gesture (down/up), never
+  // per-frame, so a transient chart throw can't drive a catch->reset->rethrow loop
+  // that escalates ("Maximum update depth") past the chart boundary to the root.
+  const [isBrushing, setIsBrushing] = useState(false);
   // Timeline window shared via URL (br_start/br_end). Parsed once, applied to the
   // brush on first data load, then normal default-window behavior resumes.
   const initialBrushDates = useMemo(() => {
@@ -2105,11 +2112,17 @@ export default function App() {
 
   const chartDataFinal = chartData;
 
-  // Slice visible data based on timeline slider indices
+  // Slice visible data based on timeline slider indices. The charts read a
+  // DEFERRED copy of the brush window: during a fast drag React may skip/interrupt
+  // intermediate chart renders (reusing the previous slice) while the slider thumb
+  // still tracks the live `brushIndices`. This collapses the per-frame re-render
+  // pressure on the 5 Recharts trees that was the proximate crash trigger, without
+  // changing the live-during-drag behavior the user sees.
+  const deferredBrush = useDeferredValue(brushIndices);
   const visibleChartData = useMemo(() => {
-    if (!chartDataFinal || !brushIndices) return chartDataFinal;
-    return chartDataFinal.slice(brushIndices.startIndex, brushIndices.endIndex + 1);
-  }, [chartDataFinal, brushIndices]);
+    if (!chartDataFinal || !deferredBrush) return chartDataFinal;
+    return chartDataFinal.slice(deferredBrush.startIndex, deferredBrush.endIndex + 1);
+  }, [chartDataFinal, deferredBrush]);
 
   // Sync Brush indices when data or interval changes during render
   // This avoids extra render cycles and lint errors associated with useEffect
@@ -2445,7 +2458,7 @@ export default function App() {
                 and auto-recovers on the next data/brush change. */}
             {chartDataFinal && chartDataFinal.length > 0 && brushIndices && (
               <ErrorBoundary
-                resetKeys={[chartDataFinal.length, brushIndices.startIndex, brushIndices.endIndex]}
+                resetKeys={[chartDataFinal.length, selectedStations, effectiveAnalyticsFuels, isBrushing]}
                 fallback={null}
               >
                 <TimelineSlider
@@ -2453,6 +2466,8 @@ export default function App() {
                   startIndex={brushIndices.startIndex}
                   endIndex={brushIndices.endIndex}
                   onChange={handleBrushChange}
+                  onBrushStart={() => setIsBrushing(true)}
+                  onBrushEnd={() => setIsBrushing(false)}
                   graphInterval={graphInterval}
                 />
               </ErrorBoundary>
@@ -2466,7 +2481,7 @@ export default function App() {
                   {chartGroups.filter(group => effectiveAnalyticsFuels.has(group.id)).map(group => (
                     <ErrorBoundary
                       key={group.id}
-                      resetKeys={[brushIndices?.startIndex, brushIndices?.endIndex, showDiscounts, chartDataFinal.length]}
+                      resetKeys={[chartDataFinal.length, selectedStations, effectiveAnalyticsFuels, showDiscounts, isBrushing]}
                       fallback={<div className="h-[140px] w-full" aria-hidden="true" />}
                     >
                     <FuelTrendChart
