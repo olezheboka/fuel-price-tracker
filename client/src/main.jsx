@@ -8,10 +8,12 @@ import ErrorBoundary from './ErrorBoundary';
 import RootCrashFallback from './RootCrashFallback';
 import posthog from 'posthog-js';
 
-posthog.init('phc_mGRzF8BAsyYJo8ckgzQuGLupg3EyfsPavWDx83Uo4bfJ', {
-  api_host: 'https://eu.i.posthog.com',
-  person_profiles: 'identified_only',
-});
+if (import.meta.env.PROD) {
+  posthog.init('phc_mGRzF8BAsyYJo8ckgzQuGLupg3EyfsPavWDx83Uo4bfJ', {
+    api_host: 'https://eu.i.posthog.com',
+    person_profiles: 'identified_only',
+  });
+}
 
 // Ultimate backstop: should a render fault ever escape the in-app boundaries,
 // show a minimal recover affordance instead of a blank white page. The real fix
