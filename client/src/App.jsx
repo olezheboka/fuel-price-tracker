@@ -1512,7 +1512,7 @@ const HistoryTable = React.memo(({
                 per-station Ø average + Min–Max footer rows for the period */}
             <div className="space-y-4">
               {/* Subtle disclaimer — the cheapest price of the day (among selected stations) is colored */}
-              <div className="flex items-start gap-2 mx-1 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+              <div className="flex items-start gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
                 <Info className="w-3.5 h-3.5 text-slate-400 mt-px shrink-0" />
                 <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed">
                   {t('avg_prices.latest_disclaimer')}
@@ -1521,7 +1521,7 @@ const HistoryTable = React.memo(({
 
               {tableFuelGroups.map(group => (
                 <div key={group.id} className="space-y-2">
-                  <div className="px-1">
+                  <div>
                     <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-gray-100 text-gray-700">
                       {t(group.labelKey)}
                     </span>
