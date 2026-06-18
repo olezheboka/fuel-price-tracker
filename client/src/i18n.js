@@ -23,6 +23,8 @@ const resources = {
 
             liter_short: 'l',
             refresh: 'Refresh Data',
+            retry: 'Retry',
+            history_stale: "Couldn't refresh — showing last loaded data",
             updated: 'Updated',
             checked_just_now: '✓ Checked just now',
             no_data: 'No data',
@@ -126,6 +128,8 @@ const resources = {
 
             liter_short: 'l',
             refresh: 'Atjaunot datus',
+            retry: 'Mēģināt vēlreiz',
+            history_stale: 'Neizdevās atjaunot — rāda pēdējos ielādētos datus',
             updated: 'Atjaunots',
             checked_just_now: '✓ Tikko pārbaudīts',
             no_data: 'Nav datu',
@@ -228,6 +232,8 @@ const resources = {
 
             liter_short: 'л',
             refresh: 'Обновить данные',
+            retry: 'Повторить',
+            history_stale: 'Не удалось обновить — показаны последние загруженные данные',
             updated: 'Обновлено',
             checked_just_now: '✓ Проверено только что',
             no_data: 'Нет данных',

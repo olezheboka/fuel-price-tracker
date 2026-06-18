@@ -134,24 +134,35 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
   const [styles, setStyles] = useState({ left: 0, width: 0, opacity: 0 });
   const buttonsRef = React.useRef([]);
 
+  // Depend on a stable signature of the option VALUES, not the array identity.
+  // Callers build `options` inline (a fresh array every render), so keying the
+  // layout effect on the array itself made it re-run on every parent re-render;
+  // combined with an unconditional setStyles that produced a new object each time,
+  // a parent that re-renders rapidly (e.g. on language change) drove an infinite
+  // render loop that crashed to the root error boundary.
+  const optionsKey = options.map(o => o.value).join('|');
+
   React.useLayoutEffect(() => {
     const update = () => {
       const activeIndex = options.findIndex(opt => opt.value === value);
       if (activeIndex !== -1 && buttonsRef.current[activeIndex]) {
         const btn = buttonsRef.current[activeIndex];
-        setStyles({
-          left: btn.offsetLeft,
-          width: btn.offsetWidth,
-          opacity: 1
-        });
+        const next = { left: btn.offsetLeft, width: btn.offsetWidth, opacity: 1 };
+        // Bail out when geometry is unchanged so setStyles can't re-trigger the
+        // effect indefinitely — this is the loop's circuit breaker.
+        setStyles(prev =>
+          prev.left === next.left && prev.width === next.width && prev.opacity === next.opacity
+            ? prev : next
+        );
       } else {
-        setStyles(prev => ({ ...prev, opacity: 0 }));
+        setStyles(prev => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
       }
     };
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, [value, options]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, optionsKey]);
 
   return (
     <div className={twMerge("inline-flex bg-gray-100/80 p-1 rounded-xl relative", className)}>
@@ -927,9 +938,23 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
 };
 
 // Custom Timeline Slider — matches Apple-style spec from screenshot
+// Live chart preview is throttled to this cadence DURING a drag. The crash was a
+// re-render storm: pushing a new window on every pointer frame (60–120 Hz) faster
+// than the Recharts trees could settle. ~90 ms (≈11 Hz) is slow enough that each
+// chart render finishes before the next starts, yet fast enough to read as live.
+const SLIDER_CHART_PREVIEW_MS = 90;
+
 const TimelineSlider = ({ data, startIndex, endIndex, onChange, onBrushStart, onBrushEnd, graphInterval }) => {
   const trackRef = React.useRef(null);
   const dragRef = React.useRef(null); // Stores drag state
+  const lastChartCommitRef = React.useRef(0); // throttle clock for live preview
+
+  // Live thumb window DURING a drag. The thumb follows this local state at full
+  // pointer rate (re-rendering only this lightweight slider), while the chart's
+  // window (brushIndices via onChange) is updated on a throttle — see
+  // handlePointerDown. Decoupling the two keeps the preview live without the
+  // per-frame Recharts storm that crashed the chart. null = not dragging.
+  const [dragWindow, setDragWindow] = React.useState(null);
 
   const totalCount = data.length;
   if (totalCount === 0) return null;
@@ -937,7 +962,11 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, onBrushStart, on
   // Minimum span based on interval mode
   const minSpan = graphInterval === 'days' ? 6 : 0; // 7 days min for 'days', 1 item min for others (0-indexed)
 
-  const dataSpan = endIndex - startIndex;
+  // Geometry tracks the live drag window when present, else the committed props.
+  const effStart = dragWindow ? dragWindow.startIndex : startIndex;
+  const effEnd = dragWindow ? dragWindow.endIndex : endIndex;
+
+  const dataSpan = effEnd - effStart;
   const dataWidthPct = ((dataSpan + 1) / totalCount) * 100;
   const effectiveWidthPct = Math.max(dataWidthPct, 30); // Minimum 30% to fit date label
 
@@ -945,11 +974,11 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, onBrushStart, on
   // so the thumb moves smoothly from left edge to right edge
   const travelRange = 100 - effectiveWidthPct;
   const maxStartIndex = totalCount - dataSpan - 1;
-  const effectiveLeftPct = maxStartIndex > 0 ? (startIndex / maxStartIndex) * travelRange : 0;
+  const effectiveLeftPct = maxStartIndex > 0 ? (effStart / maxStartIndex) * travelRange : 0;
 
   // Format the date range label
-  const startDate = data[startIndex]?.date ? new Date(data[startIndex].date) : null;
-  const endDate = data[endIndex]?.date ? new Date(data[endIndex].date) : null;
+  const startDate = data[effStart]?.date ? new Date(data[effStart].date) : null;
+  const endDate = data[effEnd]?.date ? new Date(data[effEnd].date) : null;
   const formatDate = (d) => d ? d.toLocaleDateString('lv-LV', { timeZone: 'Europe/Riga', day: '2-digit', month: '2-digit' }) : '';
   const dateLabel = startDate && endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : '';
 
@@ -974,17 +1003,24 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, onBrushStart, on
     const startX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
     dragRef.current = { mode, startX, origStart: startIndex, origEnd: endIndex };
     if (onBrushStart) onBrushStart(); // mark drag active (stable boundary reset signal)
+    lastChartCommitRef.current = 0; // let the first move commit immediately
 
-    // Coalesce drag updates to one re-render per animation frame. A native drag
-    // fires mousemove at 60–120 Hz; without this, every event triggered a full
-    // re-render of all fuel charts (multi-line + ErrorBars + pills), faster than
-    // Recharts could settle — the storm behind the white-screen crash. We keep
-    // only the latest pending window and flush it once per frame.
+    // The thumb follows `pending` at full pointer rate via setDragWindow (cheap —
+    // only this slider re-renders). The chart follows via onChange, but THROTTLED
+    // to SLIDER_CHART_PREVIEW_MS so the Recharts trees re-render at a rate they can
+    // keep up with instead of once per frame. onUp always commits the exact final
+    // window, so throttling never loses the end position. `lastCommitted` avoids a
+    // redundant onChange when the throttled value equals the last one sent.
     let pending = null;
-    let rafId = null;
-    const flush = () => {
-      rafId = null;
-      if (pending) { onChange(pending); pending = null; }
+    let lastCommitted = null;
+
+    const now = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+
+    const commitToChart = (win) => {
+      if (lastCommitted && win.startIndex === lastCommitted.startIndex && win.endIndex === lastCommitted.endIndex) return;
+      lastCommitted = win;
+      lastChartCommitRef.current = now();
+      onChange(win);
     };
 
     const onMove = (ev) => {
@@ -1008,13 +1044,19 @@ const TimelineSlider = ({ data, startIndex, endIndex, onChange, onBrushStart, on
       } else if (drag.mode === 'right') {
         pending = clampIndices(drag.origStart, drag.origEnd + deltaIdx);
       }
-      if (rafId === null) rafId = requestAnimationFrame(flush);
+      setDragWindow(pending); // thumb: full rate
+      if (now() - lastChartCommitRef.current >= SLIDER_CHART_PREVIEW_MS) {
+        commitToChart(pending); // chart: throttled live preview
+      }
     };
 
     const onUp = () => {
       dragRef.current = null;
-      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-      if (pending) { onChange(pending); pending = null; } // apply the final position
+      // Commit the exact final window to the chart, then drop the local preview in
+      // the SAME batched event tick (onChange + setDragWindow), so the thumb never
+      // flickers back on release even though the chart was throttled mid-drag.
+      if (pending) { commitToChart(pending); pending = null; }
+      setDragWindow(null);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('touchmove', onMove);
@@ -1576,6 +1618,10 @@ export default function App() {
 
   const [loading, setLoading] = useState(!window.__INITIAL_PRICES__);
   const [historyLoading, setHistoryLoading] = useState(true);
+  // True when the most recent history fetch failed after retrying — the analytics
+  // subsections then keep showing the previous (stale) data, so we surface a soft
+  // hint instead of silently presenting old prices as current.
+  const [historyError, setHistoryError] = useState(false);
   const [lastCheck, setLastCheck] = useState(() => {
     if (window.__INITIAL_PRICES__ && window.__INITIAL_PRICES__.length > 0) {
       return window.__INITIAL_PRICES__[0].timestamp;
@@ -1819,17 +1865,15 @@ export default function App() {
     localStorage.setItem('showDiscounts', String(showDiscounts));
   }, [showDiscounts]);
 
-  // Handle Initial Language
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const langParam = params.get('lang');
-    const storedLang = localStorage.getItem('i18nextLng');
-    const initialLang = langParam || storedLang || 'en';
-
-    if (lngs[initialLang] && i18n.language !== initialLang) {
-      i18n.changeLanguage(initialLang);
-    }
-  }, [i18n]);
+  // NOTE: initial language is resolved once in i18n.js (getInitialLanguage:
+  // URL `lang` → localStorage → 'en') BEFORE React mounts. A second
+  // read-and-changeLanguage effect used to live here, but it fought the URL-sync
+  // effect below (which writes `lang`/localStorage FROM i18n.language): on a
+  // language switch the two never reached a fixed point and ping-ponged
+  // ru→en→ru… until React's update-depth limiter crashed the app. Keeping a
+  // single source of truth (i18n.js for init, the dropdown for changes, URL-sync
+  // for persistence) is what prevents that loop — do not re-add a language reader
+  // that also calls changeLanguage.
 
   const fetchData = useCallback(async (forceScrape = false, showNotification = false) => {
     setLoading(true);
@@ -1846,8 +1890,15 @@ export default function App() {
       }
     }
 
-    const latestPromise = axios
-      .get(`${API_BASE}/prices/latest`, { timeout: 15000 })
+    // Retry a GET once after a short pause. A single transient blip (timeout, brief
+    // network drop) otherwise leaves a view showing stale data with no indication —
+    // the failure mode that made the price-card-vs-analytics mismatch look like a bug.
+    const getWithRetry = (url, opts) =>
+      axios.get(url, opts).catch(() =>
+        new Promise(r => setTimeout(r, 1500)).then(() => axios.get(url, opts))
+      );
+
+    const latestPromise = getWithRetry(`${API_BASE}/prices/latest`, { timeout: 15000 })
       .then(latestRes => {
         const newPrices = latestRes.data;
 
@@ -1906,12 +1957,15 @@ export default function App() {
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
 
-    const historyPromise = axios
-      .get(`${API_BASE}/prices/history`, { timeout: 15000 })
+    const historyPromise = getWithRetry(`${API_BASE}/prices/history`, { timeout: 15000 })
       .then(historyRes => {
         setHistoryData(historyRes.data);
+        setHistoryError(false);
       })
-      .catch(err => console.error(err))
+      .catch(err => {
+        console.error(err);
+        setHistoryError(true);
+      })
       .finally(() => setHistoryLoading(false));
 
     await Promise.all([latestPromise, historyPromise]);
@@ -2420,6 +2474,26 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {/* Soft hint when the latest history refresh failed (after retry): the
+                analytics below still shows the previous data, so flag it as stale
+                rather than passing it off as current. Offers a manual retry. */}
+            {historyError && (
+              <div className="mx-3 sm:mx-6 mt-3 flex items-center justify-between gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Info className="w-4 h-4 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-medium truncate">{t('history_stale')}</span>
+                </div>
+                <button
+                  onClick={handleRefresh}
+                  disabled={historyLoading}
+                  className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 hover:text-amber-900 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <RefreshCw className={clsx('w-3.5 h-3.5', historyLoading && 'animate-spin')} />
+                  {t('retry')}
+                </button>
+              </div>
+            )}
 
             {/* Subsection: Graph */}
             <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-5">
