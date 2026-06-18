@@ -856,34 +856,12 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
   }
   if (!hasVals) { dMin = 0; dMax = 1; }
 
-  // Derive Y-axis domain from recent data so historical swings don't compress
-  // closely-spaced current lines. Cap at 14 points (~2 weeks) so a mid-range
-  // dip doesn't blow out the domain; older data is clipped at the chart boundary.
-  const recentCount = Math.max(Math.min(Math.ceil(safeData.length * 0.15), 14), 7);
-  const recentStart = Math.max(0, safeData.length - recentCount);
-  let yMin = Infinity, yMax = -Infinity;
-  safeData.forEach((d, idx) => {
-    if (idx < recentStart) return;
-    visibleStations.forEach(s => {
-      const v = d[`${group.id}__${s}`];
-      if (typeof v === 'number') { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
-    });
-  });
-  if (yMin === Infinity) { yMin = dMin; yMax = dMax; }
-  // Anchor domain on the endpoint prices so the current inter-station gap
-  // always has meaningful pixel room. Allow surrounding context up to 4× the
-  // endpoint gap — large enough to show a recent price cut, tight enough that
-  // closely-priced lines never collapse to the same pixel row.
-  const lastDataPoint = safeData[safeData.length - 1] || {};
-  const endPrices = visibleStations.map(s => lastDataPoint[`${group.id}__${s}`]).filter(v => typeof v === 'number');
-  const endMin = endPrices.length ? Math.min(...endPrices) : yMin;
-  const endMax = endPrices.length ? Math.max(...endPrices) : yMax;
-  const endCenter = (endMin + endMax) / 2;
-  const maxContextSpread = Math.max((endMax - endMin) * 4, 0.06);
-  const contextSpread = Math.min(yMax - yMin, maxContextSpread);
-  const pad = Math.max(contextSpread * 0.15, 0.02);
-  const domainLow = endCenter - Math.max(contextSpread / 2 + pad, 0.03);
-  const domainHigh = endCenter + Math.max(contextSpread / 2 + pad, 0.03);
+  // Y-axis spans the full period: min price at bottom, max price at top.
+  // A small 5 % pad on each side keeps dots from touching the chart edges.
+  const periodRange = dMax - dMin;
+  const pad = Math.max(periodRange * 0.05, 0.005);
+  const domainLow = dMin - pad;
+  const domainHigh = dMax + pad;
 
   // Price-pill geometry for the final datapoint. toY mirrors the (explicit,
   // linear) YAxis domain → pixel mapping so pills line up with the real dots.
