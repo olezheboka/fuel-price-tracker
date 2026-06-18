@@ -2315,7 +2315,7 @@ export default function App() {
       }
     }
 
-    const qs = params.toString();
+    const qs = params.toString().replace(/%2C/g, ',');
     const newRelativePathQuery = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, '', newRelativePathQuery);
   }, [i18n.language, showDiscounts, historyStartDate, historyEndDate, historyPreset, selectedStations, selectedFuels, analyticsFuelSelection, analyticsFuelList, brushIndices, chartDataFinal]);
