@@ -51,35 +51,35 @@ export default function MultiSelect({ label, options, selected, onToggle, onTogg
           return (
             <div
               key={o.value}
-              className="flex items-center gap-1 rounded-lg pl-2.5 pr-1.5 hover:bg-gray-100"
+              className="group flex items-center rounded-lg hover:bg-gray-100"
             >
               <button
                 type="button"
                 onClick={() => onToggle(o.value)}
-                className="flex-1 min-w-0 py-2 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 active:scale-[0.99] transition-transform"
+                aria-pressed={checked}
+                aria-label={o.label}
+                className="flex items-center gap-2 flex-1 min-w-0 pl-2.5 pr-1 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 active:scale-[0.99] transition-transform rounded-lg"
               >
+                <div
+                  aria-hidden="true"
+                  className={clsx(
+                    'shrink-0 flex items-center justify-center w-4 h-4 rounded border transition-colors',
+                    checked ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 text-transparent'
+                  )}
+                >
+                  <Check size={11} strokeWidth={3} />
+                </div>
                 <span className="text-sm font-medium text-gray-800 truncate">{o.label}</span>
               </button>
               {onSelectOnly && (
                 <button
                   type="button"
                   onClick={() => onSelectOnly(o.value)}
-                  className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-blue-600 px-1.5 py-1 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors"
+                  className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-blue-600 px-2 py-1 mr-1 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-opacity duration-150"
                 >
                   {t('only')}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => onToggle(o.value)}
-                aria-label={o.label}
-                className={clsx(
-                  'shrink-0 flex items-center justify-center w-5 h-5 rounded-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors',
-                  checked ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 text-transparent'
-                )}
-              >
-                <Check size={13} strokeWidth={3} />
-              </button>
             </div>
           );
         })}
