@@ -4,7 +4,7 @@ import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList, ErrorBar } from 'recharts';
 import { useTranslation } from 'react-i18next';
 // framer-motion removed
-import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet } from 'lucide-react';
+import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 const PriceChangeCards = lazy(() => import('./InsightsPanel'));
@@ -328,15 +328,29 @@ const HistoryTableSkeleton = () => (
 
 // Toast Notification Component - Apple Liquid Style
 
-const Toast = ({ notification, onDismiss, t }) => {
+const Toast = ({ notification, onDismiss, onRetry, t }) => {
+  const kind = notification?.kind;
+  // Errors linger a little longer (the user may want to hit Retry).
+  const durationMs = kind === 'error' ? 8000 : 5000;
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => {
-        onDismiss();
-      }, 5000);
+      const timer = setTimeout(() => onDismiss(), durationMs);
       return () => clearTimeout(timer);
     }
-  }, [notification, onDismiss]);
+  }, [notification, onDismiss, durationMs]);
+
+  // Header icon: error → warning; changed → net direction (down = cheaper = green,
+  // up = pricier = red, mixed = neutral); nochange → check.
+  const dir = notification?.dir;
+  const isError = kind === 'error';
+  const isUp = kind === 'changed' && dir === 'up';
+  const isDown = kind === 'changed' && dir === 'down';
+  const iconBg = isError ? 'bg-amber-50' : isUp ? 'bg-red-50' : isDown ? 'bg-green-50' : 'bg-gray-100';
+  const HeaderIcon = isError ? AlertTriangle : isUp ? TrendingUp : isDown ? TrendingDown : kind === 'nochange' ? Check : Info;
+  const iconColor = isError ? 'text-amber-500' : isUp ? 'text-red-500' : isDown ? 'text-green-600' : 'text-gray-500';
+  // Empty when idle so the always-mounted (hidden) toast shell exposes no stale
+  // title to screen readers between notifications.
+  const title = !notification ? '' : isError ? t('notification.error_title') : t('notification.prices_changed');
 
   return (
     <div
@@ -345,57 +359,62 @@ const Toast = ({ notification, onDismiss, t }) => {
         notification ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-8 scale-90 pointer-events-none"
       )}
     >
-      <div
-        className="bg-white/95 rounded-[22px] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] overflow-hidden border border-gray-200/60"
-      >
+      <div className="bg-white/95 rounded-[22px] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] overflow-hidden border border-gray-200/60">
         <div className="p-3 sm:p-4">
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-start gap-2.5 sm:gap-3">
             {/* Icon */}
-            {(() => {
-              const netDiff = notification?.changes?.reduce((sum, c) => sum + c.diff, 0) ?? 0;
-              const isUp = notification?.hasChanges && netDiff > 0.0001;
-              const isDown = notification?.hasChanges && netDiff < -0.0001;
-              return (
-                <div className={`flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center ${isUp ? 'bg-red-50' : isDown ? 'bg-green-50' : 'bg-gray-100'}`}>
-                  {isUp ? (
-                    <TrendingUp size={16} className="text-red-500 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                  ) : isDown ? (
-                    <TrendingDown size={16} className="text-green-600 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                  ) : (
-                    <Info size={16} className="text-gray-500 sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                  )}
-                </div>
-              );
-            })()}
+            <div className={`flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center ${iconBg}`}>
+              <HeaderIcon size={16} className={`${iconColor} sm:w-[18px] sm:h-[18px]`} strokeWidth={2.5} />
+            </div>
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] sm:text-[15px] font-semibold text-gray-900 leading-tight">
-                {notification?.title}
-              </p>
-              {notification?.changes && notification.changes.length > 0 ? (
-                <div className="mt-1.5 space-y-1">
-                  {notification.changes.map((change, i) => {
-                    let textKey = 'notification.item_unchanged';
-                    if (change.diff > 0.0001) textKey = 'notification.item_increased';
-                    if (change.diff < -0.0001) textKey = 'notification.item_decreased';
+              <p className="text-[14px] sm:text-[15px] font-semibold text-gray-900 leading-tight">{title}</p>
 
-                    return (
-                      <div key={i} className="flex items-center gap-1.5 text-[12px] sm:text-[13px]">
-                        <span className={`font-medium ${change.diff > 0.0001 ? 'text-red-500' :
-                          change.diff < -0.0001 ? 'text-green-600' : 'text-gray-600'
-                          }`}>
-                          {t(textKey, {
-                            fuel: change.fuel,
-                            diff: Math.abs(change.diff * 100).toFixed(1)
-                          })}
-                        </span>
+              {kind === 'changed' && (
+                <div className="mt-2 space-y-2 max-h-[42vh] overflow-y-auto">
+                  {notification.groups.map(g => (
+                    <div key={g.source}>
+                      <div className="text-[12px] sm:text-[13px] font-semibold leading-tight" style={{ color: g.color }}>
+                        {g.label}
                       </div>
-                    );
-                  })}
+                      <div className="mt-0.5">
+                        {g.items.map(it => {
+                          const grp = FUEL_GROUPS.find(f => f.id === it.fuelId);
+                          const down = it.diff < 0;
+                          return (
+                            <div key={it.fuelId} className="flex items-center gap-2 text-[12px] sm:text-[13px] py-0.5 pl-3">
+                              <span className="text-gray-700">{t(grp?.labelKey || it.fuelId)}</span>
+                              <span className={clsx("ml-auto font-semibold tabular-nums", down ? "text-green-600" : "text-red-500")}>
+                                {down ? '↓' : '↑'}{Math.abs(it.diff * 100).toFixed(1)}¢
+                              </span>
+                              <span className="text-gray-400 tabular-nums w-[52px] text-right">€{it.newPrice.toFixed(3)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <p className="text-[12px] sm:text-[13px] text-gray-500 mt-0.5 leading-tight">{notification?.message}</p>
+              )}
+
+              {kind === 'nochange' && (
+                <p className="text-[12px] sm:text-[13px] text-gray-500 mt-0.5 leading-tight">{t('notification.no_changes')}</p>
+              )}
+
+              {kind === 'error' && (
+                <>
+                  <p className="text-[12px] sm:text-[13px] text-gray-500 mt-0.5 leading-tight">{t('notification.error_detail')}</p>
+                  {onRetry && (
+                    <button
+                      onClick={() => { onDismiss(); onRetry(); }}
+                      className="mt-2 inline-flex items-center gap-1.5 text-[12px] sm:text-[13px] font-semibold text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 active:scale-95 transition-all"
+                    >
+                      <RefreshCw size={13} strokeWidth={2.5} />
+                      {t('retry')}
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -412,10 +431,8 @@ const Toast = ({ notification, onDismiss, t }) => {
         {/* Progress bar */}
         <div className="h-1 bg-gray-100">
           <div
-            className={clsx(
-              "h-full bg-gray-300 transition-all duration-[5000ms] ease-linear",
-              notification ? "w-full" : "w-0"
-            )}
+            className={clsx("h-full bg-gray-300 ease-linear", notification ? "w-full" : "w-0")}
+            style={{ transitionProperty: 'width', transitionDuration: `${durationMs}ms` }}
           />
         </div>
       </div>
@@ -1902,48 +1919,48 @@ export default function App() {
       .then(latestRes => {
         const newPrices = latestRes.data;
 
-        // Compare prices if we have previous data and notification is requested
+        // Build the refresh notification: diff keyed by (station, fuel group) so
+        // each line is one unambiguous station+fuel, grouped under its provider,
+        // and only fuels that actually moved are shown. Matching by `type` alone
+        // (the old way) collapsed the four stations together and listed every
+        // unchanged fuel — see the redesigned Toast.
         if (showNotification && previousPricesRef.current.length > 0) {
-          const changes = [];
-          let hasAnyChange = false;
+          const prev = previousPricesRef.current;
+          const CHANGE_THRESHOLD = 0.0005; // ≥0.1¢ once rounded; ignores float noise
+          const byStation = new Map(); // source -> [{ fuelId, diff, newPrice }]
 
-          newPrices.forEach(newPrice => {
-            const oldPrice = previousPricesRef.current.find(p => p.type === newPrice.type);
-            if (oldPrice) {
-              const diff = newPrice.price - oldPrice.price;
-              if (Math.abs(diff) >= 0.001) {
-                hasAnyChange = true;
-              }
-              changes.push({
-                fuel: newPrice.type.replace('Neste ', '').replace('Futura ', ''),
-                oldPrice: oldPrice.price,
-                newPrice: newPrice.price,
-                diff: diff
-              });
-            }
+          newPrices.forEach(np => {
+            const source = np.source || 'Neste';
+            const fuelId = fuelGroupId(np);
+            const old = prev.find(p => (p.source || 'Neste') === source && fuelGroupId(p) === fuelId);
+            if (!old) return;
+            const diff = np.price - old.price;
+            if (Math.abs(diff) < CHANGE_THRESHOLD) return;
+            if (!byStation.has(source)) byStation.set(source, []);
+            byStation.get(source).push({ fuelId, diff, newPrice: np.price });
           });
 
-          const cleanName = (name) => {
-            return name.replace('Futura D', 'Diesel').replace('Futura ', '');
-          };
+          // Order groups by station, fuels within a group canonically.
+          const groups = STATION_ORDER
+            .filter(src => byStation.has(src))
+            .map(src => ({
+              source: src,
+              label: STATIONS[src].label,
+              color: STATIONS[src].color,
+              items: byStation.get(src).sort(
+                (a, b) => FUEL_GROUP_IDS.indexOf(a.fuelId) - FUEL_GROUP_IDS.indexOf(b.fuelId)
+              ),
+            }));
 
-          const processedChanges = changes.map(c => ({
-            ...c,
-            fuel: cleanName(c.fuel)
-          }));
-
-          if (hasAnyChange) {
+          if (groups.length > 0) {
+            const net = groups.reduce((s, g) => s + g.items.reduce((t2, i) => t2 + i.diff, 0), 0);
             setNotification({
-              hasChanges: true,
-              title: t('notification.prices_changed'),
-              changes: processedChanges
+              kind: 'changed',
+              dir: net < -0.0001 ? 'down' : net > 0.0001 ? 'up' : 'mixed',
+              groups,
             });
           } else {
-            setNotification({
-              hasChanges: false,
-              title: t('notification.data_refreshed'),
-              message: t('notification.no_changes')
-            });
+            setNotification({ kind: 'nochange' });
           }
         }
 
@@ -1954,7 +1971,11 @@ export default function App() {
           setLastCheck(newPrices[0].timestamp);
         }
       })
-      .catch(err => console.error(err))
+      .catch(err => {
+        console.error(err);
+        // Surface a manual refresh failure instead of silently keeping old data.
+        if (showNotification) setNotification({ kind: 'error' });
+      })
       .finally(() => setLoading(false));
 
     const historyPromise = getWithRetry(`${API_BASE}/prices/history`, { timeout: 15000 })
@@ -1969,7 +1990,9 @@ export default function App() {
       .finally(() => setHistoryLoading(false));
 
     await Promise.all([latestPromise, historyPromise]);
-  }, [t]);
+    // No `t` dependency: all user-facing notification strings are now resolved in
+    // the Toast component at render time, so fetchData no longer reads translations.
+  }, []);
 
   const handleRefresh = async () => {
     await fetchData(true, true);
@@ -2304,6 +2327,7 @@ export default function App() {
       <Toast
         notification={notification}
         onDismiss={() => setNotification(null)}
+        onRetry={handleRefresh}
         t={t}
       />
 

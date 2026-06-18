@@ -69,12 +69,10 @@ const resources = {
                 "years": "Years"
             },
             notification: {
-                prices_changed: "Prices Updated",
-                data_refreshed: "Updated",
-                no_changes: "Prices haven't changed",
-                item_increased: "{{fuel}} price increased by {{diff}}¢",
-                item_decreased: "{{fuel}} price decreased by {{diff}}¢",
-                item_unchanged: "{{fuel}} price has not changed"
+                prices_changed: "Prices updated",
+                no_changes: "No changes across all stations",
+                error_title: "Couldn't refresh",
+                error_detail: "Showing the last loaded prices."
             },
             select_all: 'Select all',
             clear_all: 'Clear',
@@ -174,11 +172,9 @@ const resources = {
             },
             notification: {
                 prices_changed: "Cenas atjauninātas",
-                data_refreshed: "Atjaunots",
-                no_changes: "Cenas nav mainījušās",
-                item_increased: "{{fuel}} cena pieauga par {{diff}}¢",
-                item_decreased: "{{fuel}} cena samazinājās par {{diff}}¢",
-                item_unchanged: "{{fuel}} cena nav mainījusies"
+                no_changes: "Visās stacijās bez izmaiņām",
+                error_title: "Neizdevās atjaunot",
+                error_detail: "Rāda pēdējās ielādētās cenas."
             },
             select_all: 'Izvēlēties visus',
             clear_all: 'Notīrīt',
@@ -278,11 +274,9 @@ const resources = {
             },
             notification: {
                 prices_changed: "Цены обновлены",
-                data_refreshed: "Обновлено",
-                no_changes: "Цены не изменились",
-                item_increased: "Цена {{fuel}} выросла на {{diff}}¢",
-                item_decreased: "Цена {{fuel}} снизилась на {{diff}}¢",
-                item_unchanged: "Цена {{fuel}} не изменилась"
+                no_changes: "Изменений нет ни на одной АЗС",
+                error_title: "Не удалось обновить",
+                error_detail: "Показаны последние загруженные цены."
             },
             select_all: 'Выбрать все',
             clear_all: 'Сбросить',
