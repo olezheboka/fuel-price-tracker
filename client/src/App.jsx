@@ -855,15 +855,30 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
     );
   }
   if (!hasVals) { dMin = 0; dMax = 1; }
-  const pad = Math.max((dMax - dMin) * 0.18, 0.012);
+
+  // Derive Y-axis domain from the most recent half of visible data so a large
+  // historical price move doesn't visually compress closely-spaced current lines.
+  // Historical data outside this tighter domain is clipped at the chart boundary.
+  const recentCount = Math.max(Math.ceil(safeData.length * 0.5), 7);
+  const recentStart = Math.max(0, safeData.length - recentCount);
+  let yMin = Infinity, yMax = -Infinity;
+  safeData.forEach((d, idx) => {
+    if (idx < recentStart) return;
+    visibleStations.forEach(s => {
+      const v = d[`${group.id}__${s}`];
+      if (typeof v === 'number') { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+    });
+  });
+  if (yMin === Infinity) { yMin = dMin; yMax = dMax; }
+  const pad = Math.max((yMax - yMin) * 0.25, 0.025);
 
   // Price-pill geometry for the final datapoint. toY mirrors the (explicit,
   // linear) YAxis domain → pixel mapping so pills line up with the real dots.
   const lastPoint = visibleData[visibleData.length - 1] || {};
   const activeSrcs = visibleStations.filter((s) => typeof lastPoint[`${group.id}__${s}`] === 'number');
   const anchorSrc = activeSrcs[0];
-  const domainMin = dMin - pad;
-  const domainSpan = (dMax + pad) - domainMin;
+  const domainMin = yMin - pad;
+  const domainSpan = (yMax + pad) - domainMin;
   const toY = (price) => PLOT_TOP + (PLOT_BOTTOM - PLOT_TOP) * (1 - (price - domainMin) / domainSpan);
   const lastIndex = visibleData.length - 1;
 
@@ -879,7 +894,7 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
           <LineChart data={visibleData} margin={{ top: 14, right: 18, left: 8, bottom: 2 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
             <XAxis dataKey="date" type="number" domain={['dataMin', 'dataMax']} hide />
-            <YAxis domain={[dMin - pad, dMax + pad]} hide />
+            <YAxis domain={[yMin - pad, yMax + pad]} hide />
             <Tooltip content={<StationChartTooltip />} cursor={{ stroke: '#9ca3af', strokeWidth: 1, strokeDasharray: '5 5' }} wrapperStyle={{ zIndex: 50 }} />
             {graphInterval === 'days' && (() => {
               // Clamp each discount band to the visible window's date range. Without
