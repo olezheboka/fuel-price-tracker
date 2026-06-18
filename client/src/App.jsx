@@ -330,14 +330,28 @@ const HistoryTableSkeleton = () => (
 
 const Toast = ({ notification, onDismiss, onRetry, t }) => {
   const kind = notification?.kind;
-  // Errors linger a little longer (the user may want to hit Retry).
-  const durationMs = kind === 'error' ? 8000 : 5000;
+
+  // Dynamic dwell time, scaled to how much there is to read: a no-change ping is
+  // brief, a price-change toast grows with the number of changed rows, and an
+  // error lingers so the user can reach Retry. Derived from the notification, so
+  // its value only changes when the notification does (keeps the timer stable).
+  const dwellMs = !notification ? 0
+    : kind === 'error' ? 8000
+    : kind === 'nochange' ? 3000
+    : Math.min(11000, 4000 + (notification.groups || []).reduce((n, g) => n + g.items.length, 0) * 650);
+
+  // Auto-dismiss. onDismiss is an inline closure recreated on every parent
+  // re-render, so depending on it here restarted the timer on each re-render
+  // (e.g. when justChecked flipped, or the 15-min poll fired) — the toast then
+  // outlived its own progress bar. Hold it in a ref and arm the timer once per
+  // notification so it counts down uninterrupted.
+  const onDismissRef = React.useRef(onDismiss);
+  useEffect(() => { onDismissRef.current = onDismiss; });
   useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => onDismiss(), durationMs);
-      return () => clearTimeout(timer);
-    }
-  }, [notification, onDismiss, durationMs]);
+    if (!notification) return undefined;
+    const timer = setTimeout(() => onDismissRef.current(), dwellMs);
+    return () => clearTimeout(timer);
+  }, [notification, dwellMs]);
 
   // Header icon: error → warning; changed → net direction (down = cheaper = green,
   // up = pricier = red, mixed = neutral); nochange → check.
@@ -432,7 +446,7 @@ const Toast = ({ notification, onDismiss, onRetry, t }) => {
         <div className="h-1 bg-gray-100">
           <div
             className={clsx("h-full bg-gray-300 ease-linear", notification ? "w-full" : "w-0")}
-            style={{ transitionProperty: 'width', transitionDuration: `${durationMs}ms` }}
+            style={{ transitionProperty: 'width', transitionDuration: `${dwellMs}ms` }}
           />
         </div>
       </div>
