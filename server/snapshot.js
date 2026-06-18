@@ -14,15 +14,33 @@
 
 let memLatest = null;   // [{ type, price, location, timestamp }, ...]
 let memHistory = null;  // deduplicated daily rows — same shape, ~1 row/day/fuel
+let memWrittenAt = 0;   // ms epoch of the last setMemory() — drives TTL revalidation
 
 function setMemory(latest, history) {
     memLatest = latest;
     memHistory = history;
+    memWrittenAt = Date.now();
 }
 
 function getMemory() {
     if (!memLatest || !memHistory) return null;
     return { latest: memLatest, history: memHistory };
+}
+
+// Extend the TTL without touching the data — used after a cheap freshness probe
+// confirms the in-memory snapshot still matches the DB, so we skip the full
+// (history) recompute until the next TTL window.
+function touchMemory() {
+    if (memLatest && memHistory) memWrittenAt = Date.now();
+}
+
+// Age (ms) of the current in-memory snapshot. Infinity when empty. Used by the
+// request path to revalidate a WARM instance's snapshot against the DB — without
+// this, a warm Lambda keeps serving the snapshot it cached at cold-start/scrape
+// time forever, so after an hourly scrape on another instance its /history (and
+// /latest) silently lag by a full cycle until the instance is recycled.
+function getMemoryAge() {
+    return memWrittenAt ? Date.now() - memWrittenAt : Infinity;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,4 +105,4 @@ async function hydrateFromBlob() {
     }
 }
 
-module.exports = { writeSnapshot, hydrateFromBlob, getMemory };
+module.exports = { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, setMemory, touchMemory };

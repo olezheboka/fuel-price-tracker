@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { initDb, openDb } = require('./db');
 const { scrapeAll } = require('./scrapers');
-const { writeSnapshot, hydrateFromBlob, getMemory } = require('./snapshot');
+const { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, setMemory, touchMemory } = require('./snapshot');
 
 // Sanitize location strings that may contain MSO/CDATA artifacts from Neste's website
 function cleanLocation(loc) {
@@ -192,35 +192,100 @@ function deduplicateHistory(rows) {
     return kept;
 }
 
+// Read the current snapshot (latest + deduplicated history) straight from the DB,
+// which is the source of truth. Shared by updateSnapshot() (post-scrape: also
+// persists to Blob) and getFreshSnapshot() (TTL revalidation: memory-only).
+async function computeSnapshotFromDb() {
+    const db = await openDb();
+
+    const latest = await db.all(`
+        SELECT type, price, location, source, timestamp
+        FROM fuel_prices
+        WHERE timestamp = (SELECT MAX(timestamp) FROM fuel_prices)
+    `);
+
+    // History now covers ALL stations (per-station Dynamics). The chart keeps
+    // itself Neste-only client-side by keying off Neste fuel-type names.
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const raw = await db.all(
+        'SELECT type, price, location, source, timestamp FROM fuel_prices WHERE timestamp > ? ORDER BY timestamp ASC',
+        [cutoff.toISOString()]
+    );
+    const history = deduplicateHistory(raw);
+
+    return {
+        latest: latest.map(p => ({ ...p, location: cleanLocation(p.location) })),
+        history: history.map(p => ({ ...p, location: cleanLocation(p.location) })),
+    };
+}
+
 // Query DB for the current snapshot data and persist it to memory + Blob.
 // Called after every successful scrape.
 async function updateSnapshot() {
     try {
-        const db = await openDb();
-
-        const latest = await db.all(`
-            SELECT type, price, location, source, timestamp
-            FROM fuel_prices
-            WHERE timestamp = (SELECT MAX(timestamp) FROM fuel_prices)
-        `);
-
-        // History now covers ALL stations (per-station Dynamics). The chart keeps
-        // itself Neste-only client-side by keying off Neste fuel-type names.
-        const cutoff = new Date();
-        cutoff.setFullYear(cutoff.getFullYear() - 1);
-        const raw = await db.all(
-            'SELECT type, price, location, source, timestamp FROM fuel_prices WHERE timestamp > ? ORDER BY timestamp ASC',
-            [cutoff.toISOString()]
-        );
-        const history = deduplicateHistory(raw);
-
-        await writeSnapshot(
-            latest.map(p => ({ ...p, location: cleanLocation(p.location) })),
-            history.map(p => ({ ...p, location: cleanLocation(p.location) }))
-        );
+        const { latest, history } = await computeSnapshotFromDb();
+        await writeSnapshot(latest, history);
         console.log(`[API] Snapshot updated: ${latest.length} latest, ${history.length} history rows.`);
     } catch (e) {
         console.error('[API] updateSnapshot failed:', e.message);
+    }
+}
+
+// How long a warm instance may serve its in-memory snapshot before revalidating
+// against the DB. Well under the hourly scrape cadence so a scrape handled by ANY
+// instance propagates to every other warm instance within this window — fixing the
+// bug where /latest and /history (load-balanced to different instances) disagreed.
+// Kept short because revalidation is a cheap MAX(timestamp) probe, not a recompute.
+const SNAPSHOT_TTL_MS = 60 * 1000;
+
+// Epoch ms of a timestamp that may be a Date, a Postgres value, or an ISO string.
+function tsToMs(t) {
+    if (t == null) return NaN;
+    return t instanceof Date ? t.getTime() : new Date(t).getTime();
+}
+
+// The latest scrape time the DB knows about — a tiny indexed query that serves as
+// the snapshot's version. Cheaper by ~1000x than recomputing the full history.
+async function latestDbTimestampMs() {
+    const db = await openDb();
+    const row = await db.get('SELECT MAX(timestamp) AS max_ts FROM fuel_prices');
+    return tsToMs(row && row.max_ts);
+}
+
+// Return a snapshot that is fresh to within SNAPSHOT_TTL_MS. Hot path: serve warm
+// memory (<1ms). On cold start: hydrate from Blob. Once the TTL lapses: probe the
+// DB's MAX(timestamp) and only do the full recompute when a new scrape has landed;
+// otherwise just extend the TTL. Falls back to any existing snapshot on DB error,
+// since stale data beats a failed request.
+async function getFreshSnapshot() {
+    let snap = getMemory();
+    if (snap && getMemoryAge() < SNAPSHOT_TTL_MS) return snap;
+
+    if (!snap) {
+        await hydratePromise;
+        snap = getMemory();
+        if (snap && getMemoryAge() < SNAPSHOT_TTL_MS) return snap;
+    }
+
+    try {
+        // Cheap freshness probe: if the DB hasn't scraped anything newer than what
+        // we already hold, the snapshot is still correct — just reset its TTL.
+        if (snap && snap.latest && snap.latest.length > 0) {
+            const dbMs = await latestDbTimestampMs();
+            const memMs = tsToMs(snap.latest[0].timestamp);
+            if (Number.isFinite(dbMs) && dbMs === memMs) {
+                touchMemory();
+                return snap;
+            }
+        }
+
+        const { latest, history } = await computeSnapshotFromDb();
+        setMemory(latest, history);
+        return getMemory();
+    } catch (e) {
+        console.error('[API] getFreshSnapshot DB refresh failed:', e.message);
+        return snap; // last-resort stale snapshot beats failing the request
     }
 }
 
@@ -299,9 +364,8 @@ app.use('/api', ensureDb);
 // Get latest prices
 app.get('/api/prices/latest', async (req, res) => {
     try {
-        // 1. Memory / Blob snapshot (warm instances: <1ms; cold with Blob: ~50ms)
-        let snap = getMemory();
-        if (!snap) { await hydratePromise; snap = getMemory(); }
+        // 1. Memory / Blob snapshot (warm: <1ms; cold w/ Blob: ~50ms; stale: DB refresh)
+        const snap = await getFreshSnapshot();
 
         if (snap) {
             const prices = snap.latest;
@@ -349,9 +413,8 @@ app.get('/api/prices/history', async (req, res) => {
             return res.status(400).json({ error: 'Invalid fuel type' });
         }
 
-        // 1. Memory / Blob snapshot
-        let snap = getMemory();
-        if (!snap) { await hydratePromise; snap = getMemory(); }
+        // 1. Memory / Blob snapshot (revalidated against DB once stale)
+        const snap = await getFreshSnapshot();
 
         if (snap) {
             let history = snap.history;
@@ -449,8 +512,7 @@ app.use('/api/refresh', makeRateLimiter(5, 'r'));
 
 app.get('/api/refresh', async (req, res) => {
     try {
-        let snap = getMemory();
-        if (!snap) { await hydratePromise; snap = getMemory(); }
+        const snap = await getFreshSnapshot();
 
         const latest = snap?.latest;
         if (latest && latest.length > 0) {
