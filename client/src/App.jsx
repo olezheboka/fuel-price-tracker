@@ -703,7 +703,7 @@ const StationChartTooltip = ({ active, payload }) => {
 // distinct from the solid graph lines.
 const PILL_HEIGHT = 24;
 const PLOT_TOP = 14; // matches LineChart top margin
-const PLOT_BOTTOM = 198; // chart height (200) − bottom margin (2)
+const PLOT_BOTTOM = 148; // chart height (150) − bottom margin (2)
 
 // Build the vertically collision-resolved pill stack for the final datapoint.
 // Each item keeps its true datapoint y plus a labelY (pill center) after overlap
@@ -880,7 +880,7 @@ const FuelTrendChart = ({ group, visibleData, chartDataFinal, graphInterval, sho
           {t(group.labelKey)}
         </span>
       </div>
-      <div className="h-[200px] w-full">
+      <div className="h-[150px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={visibleData} margin={{ top: 14, right: 18, left: 8, bottom: 2 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
