@@ -603,22 +603,19 @@ const StationRow = ({ rec, isCheapest }) => {
           )}
         </div>
       </div>
-      <div className="shrink-0 flex flex-col items-end leading-tight">
+      <div className="shrink-0 flex items-baseline gap-1 leading-tight">
         <span
           className={clsx(
             'tabular-nums tracking-tight',
-            isCheapest ? 'text-base sm:text-lg font-extrabold' : 'text-sm sm:text-base font-bold'
+            isCheapest
+              ? 'text-sm sm:text-base font-bold text-white rounded-md px-1.5 py-0.5 inline-block'
+              : 'text-sm sm:text-base font-bold text-gray-900'
           )}
-          style={{ color: isCheapest ? CHEAPEST_COLOR : '#111827' }}
+          style={isCheapest ? { backgroundColor: CHEAPEST_COLOR } : undefined}
         >
           €{rec.price.toFixed(3)}
-          <span className="text-[10px] text-gray-400 font-medium ml-1">/ {t('liter_short')}</span>
         </span>
-        {isCheapest && (
-          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded-md mt-1" style={{ backgroundColor: CHEAPEST_COLOR }}>
-            {t('cheapest_badge')}
-          </span>
-        )}
+        <span className="text-[10px] text-gray-400 font-medium">/ {t('liter_short')}</span>
       </div>
     </div>
   );
