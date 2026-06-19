@@ -48,8 +48,8 @@ const lngs = {
 const STATIONS = {
   Neste:   { label: 'Neste',    color: '#003C96' },
   CircleK: { label: 'Circle K', color: '#DA281C' },
-  Virsi:   { label: 'Virši',    color: '#24356F' },
-  Viada:   { label: 'Viada',    color: '#D50231' },
+  Virsi:   { label: 'Virši',    color: '#7C3AED' },
+  Viada:   { label: 'Viada',    color: '#E08A00' },
 };
 const STATION_ORDER = ['Neste', 'CircleK', 'Virsi', 'Viada'];
 
