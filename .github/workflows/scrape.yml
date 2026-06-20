@@ -9,7 +9,7 @@ name: Hourly fuel-price scrape
 
 on:
   schedule:
-    - cron: '0 * * * *'   # top of every hour (UTC); GitHub may delay under load
+    - cron: '30 * * * *'   # :30 past every hour (UTC); avoids :00 top-of-hour congestion
   workflow_dispatch: {}    # manual "Run workflow" button for testing
 
 # Never overlap runs.
