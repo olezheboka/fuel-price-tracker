@@ -31,6 +31,8 @@ if (!IS_PRODUCTION) {
 
 // --- Security: CORS whitelist ---
 const ALLOWED_ORIGINS = [
+    'https://cenometrs.lv',
+    'https://www.cenometrs.lv',
     'https://neste-fuel-tracker.vercel.app',
     'https://neste-fuel-tracker-olezhebokas-projects.vercel.app',
 ];
