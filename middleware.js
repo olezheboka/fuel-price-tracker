@@ -1,8 +1,11 @@
 import { next } from '@vercel/edge';
+import { serializeForScript } from './edge-serialize.js';
 
 export const config = {
   matcher: '/',
 };
+
+export { serializeForScript };
 
 export default async function middleware(request) {
   const url = new URL(request.url);
@@ -40,16 +43,11 @@ export default async function middleware(request) {
 
     let html = await htmlResponse.text();
 
-    // 4. Inject the data.
-    // JSON.stringify does NOT escape "<" or U+2028 / U+2029, which can break out of a
-    // <script> block. Escape those sequences before interpolating.
-    const safe = JSON.stringify(latestPrices)
-      .replace(/</g, '\\u003c')
-      .replace(/ /g, '\\u2028')
-      .replace(/ /g, '\\u2029');
+    // 4. Inject the data, escaping sequences that could break out of <script>.
+    const safe = serializeForScript(latestPrices);
     const injection = `<script>window.__INITIAL_PRICES__ = ${safe};</script>`;
     const marker = '<!-- __INITIAL_PRICES_INJECTED_HERE__ -->';
-    
+
     if (html.includes(marker)) {
       html = html.replace(marker, injection);
     } else {
