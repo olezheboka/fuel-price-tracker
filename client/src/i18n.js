@@ -23,7 +23,7 @@ const resources = {
 
             liter_short: 'l',
             refresh: 'Refresh Data',
-            updated: 'Updated',
+            updated: 'Prices updated',
             checked_just_now: '✓ Checked just now',
             no_data: 'No data',
             valid_at: 'Valid:',
@@ -126,7 +126,7 @@ const resources = {
 
             liter_short: 'l',
             refresh: 'Atjaunot datus',
-            updated: 'Atjaunots',
+            updated: 'Cenas atjaunotas',
             checked_just_now: '✓ Tikko pārbaudīts',
             no_data: 'Nav datu',
             valid_at: 'Spēkā:',
@@ -228,7 +228,7 @@ const resources = {
 
             liter_short: 'л',
             refresh: 'Обновить данные',
-            updated: 'Обновлено',
+            updated: 'Цены обновлены',
             checked_just_now: '✓ Проверено только что',
             no_data: 'Нет данных',
             valid_at: 'Актуально:',
