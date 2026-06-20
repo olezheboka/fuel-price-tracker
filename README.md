@@ -1,6 +1,6 @@
-# Neste Fuel Tracker
+# Fuel Price Tracker
 
-A web application that tracks and visualizes fuel prices from Neste stations in Latvia. It scrapes price data, stores history, and presents interactive charts and insights.
+A web application that tracks and visualizes fuel prices from gas stations in Latvia (Neste, Circle K, Virši, Viada). It scrapes price data, stores history, and presents interactive charts and insights.
 
 ## Features
 
@@ -53,7 +53,7 @@ A web application that tracks and visualizes fuel prices from Neste stations in 
 1. **Clone the repository:**
    ```bash
    git clone <repository-url>
-   cd neste-fuel-tracker
+   cd fuel-price-tracker
    ```
 
 2. **Install Client Dependencies:**

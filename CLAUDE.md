@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Neste Fuel Tracker — a full-stack web app that scrapes, stores, and visualizes fuel prices from Latvian gas stations across four chains (Neste, Circle K, Virši, Viada). All client views are multi-station: the prices view, the per-fuel charts, the Dynamics deltas, and the history table (which carries per-station Ø average + Min–Max footer rows; the old Neste-only "average price" cards were removed). Deployed on Vercel at https://neste-fuel-tracker.vercel.app.
+Fuel Price Tracker — a full-stack web app that scrapes, stores, and visualizes fuel prices from Latvian gas stations across four chains (Neste, Circle K, Virši, Viada). All client views are multi-station: the prices view, the per-fuel charts, the Dynamics deltas, and the history table (which carries per-station Ø average + Min–Max footer rows; the old Neste-only "average price" cards were removed). Deployed on Vercel at https://neste-fuel-tracker.vercel.app.
 
 ## Tech Stack
 

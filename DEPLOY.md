@@ -12,7 +12,7 @@ This project is configured to be deployed as a full-stack application on Vercel 
 2.  **Import to Vercel**:
     *   Go to [Vercel Dashboard](https://vercel.com/dashboard).
     *   Click **"Add New..."** -> **"Project"**.
-    *   Find your `neste-fuel-tracker` repository and click **"Import"**.
+    *   Find your `fuel-price-tracker` repository and click **"Import"**.
 
 3.  **Project Configuration**:
     *   **Framework Preset**: Select **Vite** (it might auto-detect).
