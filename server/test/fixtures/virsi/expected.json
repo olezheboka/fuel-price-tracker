@@ -1,0 +1,26 @@
+[
+  {
+    "type": "diesel",
+    "price": 1.717,
+    "location": "Brīvības gatve 297, Rīga",
+    "source": "Virsi"
+  },
+  {
+    "type": "95",
+    "price": 1.737,
+    "location": "Brīvības gatve 297, Rīga",
+    "source": "Virsi"
+  },
+  {
+    "type": "98",
+    "price": 1.807,
+    "location": "Brīvības gatve 297, Rīga",
+    "source": "Virsi"
+  },
+  {
+    "type": "gas",
+    "price": 0.895,
+    "location": "Visā Viršu tīklā",
+    "source": "Virsi"
+  }
+]

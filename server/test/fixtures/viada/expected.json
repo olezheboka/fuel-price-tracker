@@ -1,0 +1,32 @@
+[
+  {
+    "type": "95",
+    "price": 1.647,
+    "location": "Zemnieku iela 58, Liepāja | Valdeķu iela 34, Rīga | Andreja Saharova iela 10, Rīga | Salaspils iela 4a, Rīga | Vecā Biķernieku iela 1, Rīga | Valgales iela 1, Rīga | Kārļa Ulmaņa gatve 67, Rīga",
+    "source": "Viada"
+  },
+  {
+    "type": "98",
+    "price": 1.752,
+    "location": "Zemnieku iela 58, Liepāja | Valdeķu iela 34, Rīga | Andreja Saharova iela 10, Rīga | Salaspils iela 4a, Rīga | Vecā Biķernieku iela 1, Rīga | Valgales iela 1, Rīga | Kārļa Ulmaņa gatve 67, Rīga",
+    "source": "Viada"
+  },
+  {
+    "type": "pro",
+    "price": 1.694,
+    "location": "Dārzciema iela 69, Rīga | Dārzciema iela 62, Rīga",
+    "source": "Viada"
+  },
+  {
+    "type": "diesel",
+    "price": 1.597,
+    "location": "Zemnieku iela 58, Liepāja | Valdeķu iela 34, Rīga | Andreja Saharova iela 10, Rīga | Salaspils iela 4a, Rīga | Vecā Biķernieku iela 1, Rīga | Valgales iela 1, Rīga | Kārļa Ulmaņa gatve 67, Rīga",
+    "source": "Viada"
+  },
+  {
+    "type": "gas",
+    "price": 0.835,
+    "location": "Andreja Saharova iela 10, Rīga | Valdeķu iela 34, Rīga",
+    "source": "Viada"
+  }
+]

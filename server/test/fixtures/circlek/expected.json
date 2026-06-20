@@ -1,0 +1,32 @@
+[
+  {
+    "type": "95",
+    "price": 1.734,
+    "location": "Dzirciema iela 40 | Gunāra Astras iela 17 | Jāņavārtu iela 21 | Gunāra Astras iela 17",
+    "source": "CircleK"
+  },
+  {
+    "type": "98",
+    "price": 1.804,
+    "location": "Dzirciema iela 40 | Gunāra Astras iela 17 | Jāņavārtu iela 21 | Gunāra Astras iela 17",
+    "source": "CircleK"
+  },
+  {
+    "type": "diesel",
+    "price": 1.704,
+    "location": "Dzirciema iela 40 | Gunāra Astras iela 17 | Jāņavārtu iela 21 | Gunāra Astras iela 17",
+    "source": "CircleK"
+  },
+  {
+    "type": "pro",
+    "price": 1.834,
+    "location": "Dzirciema iela 40 | Gunāra Astras iela 17 | Jāņavārtu iela 21 | Gunāra Astras iela 17",
+    "source": "CircleK"
+  },
+  {
+    "type": "gas",
+    "price": 0.9715,
+    "location": "Gunāra Astras iela 17 | Krasta iela 93 | Vienības gatve 105",
+    "source": "CircleK"
+  }
+]

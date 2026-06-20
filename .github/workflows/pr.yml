@@ -1,0 +1,95 @@
+name: PR
+
+# Fast feedback on every PR to main. All jobs are required by branch protection
+# (see docs/TESTING.md), so a red check blocks merge — which blocks deploy.
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (client)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: client/package-lock.json }
+      - run: npm ci
+        working-directory: client
+      - run: npm run lint
+        working-directory: client
+
+  test-server:
+    name: Server tests (unit + parsing + integration + security)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+        working-directory: server
+      - run: npm test
+        working-directory: server
+        env: { CI: 'true' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-junit
+          path: server/test-results/junit.xml
+          retention-days: 14
+
+  test-client:
+    name: Client unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: client/package-lock.json }
+      - run: npm ci
+        working-directory: client
+      - run: npm test
+        working-directory: client
+        env: { CI: 'true' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-junit
+          path: client/test-results/junit.xml
+          retention-days: 14
+
+  build:
+    name: Build (client)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: client/package-lock.json }
+      - run: npm ci
+        working-directory: client
+      - run: npm run build
+        working-directory: client
+
+  security:
+    name: Security (audit + secret scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      # High+ vulnerabilities in production deps fail the build.
+      - name: npm audit (server)
+        working-directory: server
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (client)
+        working-directory: client
+        run: npm audit --omit=dev --audit-level=high
+      # Secret scanning — keeps .env and friends out of git history.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,22 @@
+[
+  {
+    "type": "Neste Futura 95",
+    "price": 1.717,
+    "location": "Lubānas 64 | Kuldīgas 1 | A.Deglava 51a | Latgales 427b"
+  },
+  {
+    "type": "Neste Futura 98",
+    "price": 1.787,
+    "location": "Lubānas 64 | Kuldīgas 1 | A.Deglava 51a | Latgales 427b"
+  },
+  {
+    "type": "Neste Futura D",
+    "price": 1.687,
+    "location": "Lubānas 64 | Kuldīgas 1 | A.Deglava 51a | Latgales 427b | Latgales 448b"
+  },
+  {
+    "type": "Neste Pro Diesel",
+    "price": 1.817,
+    "location": "Lubānas 64 | Kuldīgas 1 | Latgales 427b | Latgales 448b"
+  }
+]

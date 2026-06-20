@@ -1,0 +1,54 @@
+name: Nightly
+
+# Scheduled health checks. These hit live provider sites and so must NEVER gate
+# merges/deploys — they run on their own schedule and open an issue on failure.
+on:
+  schedule:
+    - cron: '0 3 * * *' # 03:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  parser-health:
+    name: Live parser health check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+        working-directory: server
+      - name: Check all providers parse against live HTML
+        id: health
+        run: npm run health:parsers
+        working-directory: server
+      - name: Open an issue if a provider broke
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Nightly parser health check failed';
+            const body = `A provider site likely changed — the live parser health check failed.\n\n` +
+              `See the run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
+              `Fix the affected scraper and refresh fixtures with \`npm --prefix server run fixtures:refresh\`.`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'parser-health',
+            });
+            if (!existing.data.length) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['parser-health'],
+              });
+            }
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Audit server (high+)
+        working-directory: server
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit client (high+)
+        working-directory: client
+        run: npm audit --omit=dev --audit-level=high
