@@ -1,0 +1,43 @@
+name: Hourly fuel-price scrape
+
+# Replaces the Vercel Cron job. Vercel's Hobby plan caps cron at once/day, so to
+# run hourly on the free plan we trigger the existing CRON_SECRET-gated
+# /api/scrape endpoint from GitHub Actions (free) instead.
+#
+# Setup: add a repository secret named CRON_SECRET with the same value as the
+# CRON_SECRET environment variable in the Vercel project.
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # top of every hour (UTC); GitHub may delay under load
+  workflow_dispatch: {}    # manual "Run workflow" button for testing
+
+# Never overlap runs.
+concurrency:
+  group: fuel-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger /api/scrape
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Change this if you move to a custom domain; the vercel.app host always works.
+          SCRAPE_URL: https://neste-fuel-tracker.vercel.app/api/scrape
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repository secret is not set."
+            exit 1
+          fi
+          code=$(curl -sS -m 120 -o /tmp/resp.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCRAPE_URL")
+          echo "HTTP $code"
+          echo "Response: $(cat /tmp/resp.json 2>/dev/null)"
+          if [ "$code" != "200" ]; then
+            echo "::error::Scrape failed (HTTP $code)"
+            exit 1
+          fi
