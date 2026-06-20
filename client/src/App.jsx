@@ -2034,13 +2034,34 @@ export default function App() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
-    // Auto-refresh data every 15 minutes to catch automated backend updates
-    const interval = setInterval(() => {
-      fetchData();
-    }, 15 * 60 * 1000);
-    return () => clearInterval(interval);
+    // Track when we last pulled fresh data so the focus/visibility handler below
+    // can skip redundant refetches when the tab was only briefly hidden.
+    let lastFetchAt = Date.now();
+    const run = () => { lastFetchAt = Date.now(); fetchData(); };
+
+    run();
+    // Auto-refresh data every 15 minutes to catch automated backend updates.
+    // setInterval is throttled/paused in background tabs and while the machine
+    // sleeps, so it can't be relied on alone — the visibility handler covers
+    // returning to a long-open tab.
+    const interval = setInterval(run, 15 * 60 * 1000);
+
+    // Refetch when the user returns to the tab (or refocuses the window) after
+    // it's been idle a while. The 30-min cron may have produced newer prices
+    // while the tab was backgrounded; 5 min throttles tab-flicking.
+    const REFRESH_ON_FOCUS_AFTER = 5 * 60 * 1000;
+    const refreshIfStale = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastFetchAt >= REFRESH_ON_FOCUS_AFTER) run();
+    };
+    document.addEventListener('visibilitychange', refreshIfStale);
+    window.addEventListener('focus', refreshIfStale);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfStale);
+      window.removeEventListener('focus', refreshIfStale);
+    };
   }, [fetchData]);
 
 
