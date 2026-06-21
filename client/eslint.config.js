@@ -24,10 +24,6 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
-      // Newer eslint-plugin-react-hooks turns this on as an error; it flags
-      // pre-existing prop->state sync effects in App.jsx. Keep it visible as a
-      // warning (doesn't block CI) until those effects are refactored.
-      'react-hooks/set-state-in-effect': 'warn',
     },
   },
   {

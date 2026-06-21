@@ -1083,32 +1083,29 @@ const HistoryTable = React.memo(({
   const PAGE_SIZE = 31;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // Reset visible rows when date range changes
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [startDate, endDate]);
-
-  // Staging state for DateRangePicker UI only
+  // Staging state for the DateRangePicker UI only.
   const [localStartDate, setLocalStartDate] = useState(startDate);
   const [localEndDate, setLocalEndDate] = useState(endDate);
 
-
-
-  // Sync internal staging when external props change (e.g. from URL)
-  useEffect(() => {
-    setLocalStartDate(startDate);
-    setLocalEndDate(endDate);
-  }, [startDate, endDate]);
-
-  // Filter States (the 'Staged' values actually used for UI tables/charts to prevent jumping)
+  // Filter States (the 'Staged' values actually used for UI tables/charts to prevent jumping).
   const [filterStart, setFilterStart] = useState(startDate);
   const [filterEnd, setFilterEnd] = useState(endDate);
 
-  // Sync filter when props change
-  useEffect(() => {
+  // When the external date range (props, e.g. from a URL change) moves, snap all
+  // derived staging/filter/pagination state back to it. Done during render —
+  // React's supported "adjust state when a prop changes" pattern — instead of in
+  // an effect, so there's no extra commit and no cascading-render warning. The
+  // guard makes it run once per actual prop change; user edits to the staging
+  // values in between (date picker, presets) are preserved.
+  const [syncedRange, setSyncedRange] = useState({ startDate, endDate });
+  if (syncedRange.startDate !== startDate || syncedRange.endDate !== endDate) {
+    setSyncedRange({ startDate, endDate });
+    setVisibleCount(PAGE_SIZE);
+    setLocalStartDate(startDate);
+    setLocalEndDate(endDate);
     setFilterStart(startDate);
     setFilterEnd(endDate);
-  }, [startDate, endDate]);
+  }
 
 
 
