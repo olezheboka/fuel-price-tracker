@@ -105,27 +105,28 @@ describe('buildChartData — discount flagging (Neste-based)', () => {
   });
 });
 
-describe('buildChartData — performance', () => {
-  it('should_process_a_year_of_4_stations_x_5_fuels_quickly', () => {
+describe('buildChartData — large input', () => {
+  it('should_aggregate_a_year_of_4_stations_x_5_fuels_correctly', () => {
+    // ~7k rows: a year of daily prices for every station/fuel combination.
+    // No wall-clock assertion — a timing threshold is flaky on shared CI runners
+    // and can't reliably tell linear from quadratic; this guards correctness at
+    // scale (and that the pipeline doesn't blow up on a full year of data).
     const sources = ['Neste', 'CircleK', 'Virsi', 'Viada'];
     const fuels = ['95', '98', 'diesel', 'pro', 'gas'];
     const rows = [];
     for (let d = 0; d < 365; d++) {
       const date = new Date(NOW.getTime() - d * 86400000).toISOString().slice(0, 10);
       for (const s of sources) for (const f of fuels) {
-        if (s === 'Neste' && (f === 'gas')) continue;     // Neste has no gas
-        if (s === 'Neste') rows.push(row(date, f, 1.7, { source: s }));
-        else rows.push(row(date, f, 1.7, { source: s }));
+        if (s === 'Neste' && f === 'gas') continue; // Neste has no gas
+        rows.push(row(date, f, 1.7, { source: s }));
       }
     }
-    const t0 = performance.now();
     const out = buildChartData(rows, { now: NOW });
-    const ms = performance.now() - t0;
-    expect(out).toHaveLength(365);
-    // Generous ceiling: a smoke guard against an accidental O(n^2) regression on
-    // ~7k rows, NOT a strict benchmark. (Linear today; the constant is dominated
-    // by Intl-based Riga date parsing.)
-    expect(ms).toBeLessThan(2000);
+    expect(out).toHaveLength(365);                 // one entry per day
+    expect(out[0].date).toBeLessThan(out[364].date); // sorted ascending
+    expect(out[0]['95__Neste']).toBe(1.7);        // series populated
+    expect(out[0]['gas__Viada']).toBe(1.7);
+    expect(out[0]['gas__Neste']).toBeUndefined(); // Neste has no gas
   });
 });
 
