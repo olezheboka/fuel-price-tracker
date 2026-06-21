@@ -15,7 +15,7 @@ jobs:
     name: Lint (client)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with: { node-version: 20, cache: npm, cache-dependency-path: client/package-lock.json }
       - run: npm ci
@@ -27,7 +27,7 @@ jobs:
     name: Server tests (unit + parsing + integration + security)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with: { node-version: 20, cache: npm, cache-dependency-path: server/package-lock.json }
       - run: npm ci
@@ -46,7 +46,7 @@ jobs:
     name: Client unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with: { node-version: 20, cache: npm, cache-dependency-path: client/package-lock.json }
       - run: npm ci
@@ -65,7 +65,7 @@ jobs:
     name: Build (client)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with: { node-version: 20, cache: npm, cache-dependency-path: client/package-lock.json }
       - run: npm ci
@@ -77,7 +77,7 @@ jobs:
     name: Security (audit + secret scan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v6
         with: { node-version: 20 }
