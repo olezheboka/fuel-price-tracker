@@ -54,11 +54,15 @@ async function writeSnapshot(latest, history) {
 
     try {
         const { put } = require('@vercel/blob');
+        // @vercel/blob v2 throws when overwriting an existing pathname unless
+        // allowOverwrite is set. We intentionally rewrite the same two fixed
+        // pathnames every scrape (addRandomSuffix: false), so this is required.
         const [lr, hr] = await Promise.all([
             put('prices/latest.json', JSON.stringify(latest), {
                 access: 'public',
                 contentType: 'application/json',
                 addRandomSuffix: false,
+                allowOverwrite: true,
                 cacheControlMaxAge: 3600,
                 token,
             }),
@@ -66,6 +70,7 @@ async function writeSnapshot(latest, history) {
                 access: 'public',
                 contentType: 'application/json',
                 addRandomSuffix: false,
+                allowOverwrite: true,
                 cacheControlMaxAge: 3600,
                 token,
             }),
