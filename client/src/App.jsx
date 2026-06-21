@@ -2150,7 +2150,7 @@ export default function App() {
             entire scroll (first child of <main>, the scroll container). */}
         {latestPrices.length > 0 && (
           <div className={clsx(
-            "sticky top-0 z-30 bg-white/95 backdrop-blur-xl rounded-2xl border border-gray-200 shadow-[0_1px_8px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)] px-3 sm:px-4 transition-[padding] duration-300 ease-out motion-reduce:transition-none",
+            "sticky top-0 z-30 bg-white/95 backdrop-blur-xl rounded-2xl px-3 sm:px-4 shadow-[0_22px_48px_-16px_rgba(15,23,42,0.28),0_6px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_28px_56px_-16px_rgba(15,23,42,0.32),0_8px_18px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 transition-[padding,box-shadow,transform] duration-300 ease-out motion-reduce:transition-none",
             filtersCompact ? "py-2 sm:py-2.5" : "py-3 sm:py-4"
           )}>
             <div className={clsx(
