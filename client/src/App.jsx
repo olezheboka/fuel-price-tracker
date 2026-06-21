@@ -1544,7 +1544,15 @@ export default function App() {
     let frameId = null;
     const onFrame = () => {
       frameId = null;
-      setFiltersCompact(window.scrollY > 90);
+      // Hysteresis: collapse past 90px, only re-expand below 50px. The 40px
+      // dead zone keeps small scroll wobbles near the threshold from flickering
+      // the title row open/closed.
+      setFiltersCompact((prev) => {
+        const y = window.scrollY;
+        if (!prev && y > 90) return true;
+        if (prev && y < 50) return false;
+        return prev;
+      });
     };
     const onScroll = () => {
       if (frameId !== null) return;
