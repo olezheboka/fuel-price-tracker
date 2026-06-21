@@ -81,17 +81,14 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@v6
         with: { node-version: 20 }
-      # Report high+ production-dep vulns but DON'T block PRs on them: the current
-      # server findings are all transitive undici issues whose only fix is a
-      # breaking @vercel/blob v2 bump (tracked separately). The nightly audit job
-      # keeps these red as the accountability signal; gitleaks below stays blocking.
+      # Block PRs on high+ production-dependency vulnerabilities. The earlier
+      # undici findings were cleared by the @vercel/blob v2 and sqlite3 6 upgrades,
+      # so both audits are clean and the gate is now enforced.
       - name: npm audit (server)
         working-directory: server
-        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
       - name: npm audit (client)
         working-directory: client
-        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
       # Secret scanning — keeps .env and friends out of git history.
       - name: gitleaks
