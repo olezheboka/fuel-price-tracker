@@ -13,7 +13,7 @@ test('should_render_without_crashing_when_the_api_returns_no_data', async ({ pag
   await page.goto('/');
 
   // Shell still renders (no white screen) and no prices are shown.
-  await expect(page.getByText('Fuel Prices').first()).toBeVisible();
+  await expect(page.getByText('cenometrs.lv').first()).toBeVisible();
   await expect(page.getByText(/\b\d\.\d{3}\b/)).toHaveCount(0);
   expect(jsErrors, `JS errors:\n${jsErrors.join('\n')}`).toEqual([]);
 });
