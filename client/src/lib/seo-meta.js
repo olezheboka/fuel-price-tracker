@@ -3,7 +3,10 @@
 // localized <title>, meta description, <html lang>, self-canonical and reciprocal
 // hreflang. Plain ESM so the Node prerender step can import it directly.
 
-export const SITE_ORIGIN = 'https://cenometrs.lv';
+// Vercel's domain settings redirect the apex (cenometrs.lv) to www, so www is the
+// final, 200-status host — canonical/hreflang/sitemap must point there directly
+// to avoid a redirect hop on every crawled URL.
+export const SITE_ORIGIN = 'https://www.cenometrs.lv';
 
 // Order matters only for sitemap/hreflang listing; lv is the primary market and
 // the x-default target.

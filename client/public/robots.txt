@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://cenometrs.lv/sitemap.xml
+Sitemap: https://www.cenometrs.lv/sitemap.xml
