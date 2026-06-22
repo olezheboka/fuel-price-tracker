@@ -2260,10 +2260,12 @@ export default function App() {
                 {t('no_data')}
               </div>
             )}
-            <div className="mt-3 sm:mt-4">
-              <p className="text-[10px] text-gray-400 font-medium flex items-start sm:items-center gap-1.5 max-w-2xl leading-tight">
-                <Info size={11} className="shrink-0 mt-[1px] sm:mt-0" strokeWidth={1.5} />
-                <span>{t('current_prices_disclaimer')}</span>
+            {/* Boxed slate callout — matches the Price History disclaimer
+                (avg_prices.latest_disclaimer) for a consistent house style. */}
+            <div className="mt-3 sm:mt-4 flex items-start gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+              <Info className="w-3.5 h-3.5 text-slate-400 mt-px shrink-0" />
+              <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed">
+                {t('current_prices_disclaimer')}
               </p>
             </div>
           </Card>
