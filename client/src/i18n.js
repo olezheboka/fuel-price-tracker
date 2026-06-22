@@ -4,7 +4,7 @@ import { initReactI18next } from "react-i18next";
 const resources = {
     en: {
         translation: {
-            app_title: "Fuel Prices",
+            app_title: "cenometrs.lv",
             price: 'Price',
             latest: 'Latest',
             current_prices: 'Fuel prices',
@@ -107,7 +107,7 @@ const resources = {
     },
     lv: {
         translation: {
-            app_title: "Degvielas cenas",
+            app_title: "cenometrs.lv",
             price: 'Cena',
             latest: 'Jaunākie',
             current_prices: 'Degvielas cenas',
@@ -209,7 +209,7 @@ const resources = {
     },
     ru: {
         translation: {
-            app_title: "Цены на топливо",
+            app_title: "cenometrs.lv",
             price: 'Цена',
             latest: 'Последние',
             current_prices: 'Цены на топливо',
