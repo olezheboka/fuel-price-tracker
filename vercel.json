@@ -1,68 +1,71 @@
 {
-    "version": 2,
+    "$schema": "https://openapi.vercel.sh/vercel.json",
     "git": {
         "deploymentEnabled": false
     },
-    "builds": [
+    "installCommand": "npm install --prefix server && npm install --prefix client",
+    "buildCommand": "npm run build --prefix client",
+    "outputDirectory": "client/dist",
+    "redirects": [
         {
-            "src": "server/index.js",
-            "use": "@vercel/node"
+            "source": "/",
+            "destination": "/lv/",
+            "statusCode": 308
         },
         {
-            "src": "client/package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist"
-            }
+            "source": "/(lv|ru|en)",
+            "destination": "/$1/",
+            "statusCode": 308
         }
     ],
-    "routes": [
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "/server/index.js",
-            "headers": {
-                "Cache-Control": "no-store, max-age=0"
-            }
+            "source": "/api/(.*)",
+            "destination": "/api"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "strict-origin-when-cross-origin"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(), microphone=(), geolocation=()"
+                },
+                {
+                    "key": "Strict-Transport-Security",
+                    "value": "max-age=31536000; includeSubDomains; preload"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin"
+                },
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://eu-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://eu.i.posthog.com https://eu-assets.i.posthog.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+                }
+            ]
         },
         {
-            "src": "/",
-            "status": 308,
-            "headers": {
-                "Location": "/lv/"
-            }
-        },
-        {
-            "src": "/(lv|ru|en)",
-            "status": 308,
-            "headers": {
-                "Location": "/$1/"
-            }
-        },
-        {
-            "src": "/(lv|ru|en)/",
-            "dest": "/client/$1/index.html",
-            "headers": {
-                "X-Frame-Options": "DENY",
-                "X-Content-Type-Options": "nosniff",
-                "Referrer-Policy": "strict-origin-when-cross-origin",
-                "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-                "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-                "Cross-Origin-Opener-Policy": "same-origin",
-                "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://eu-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://eu.i.posthog.com https://eu-assets.i.posthog.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
-            }
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/client/$1",
-            "headers": {
-                "X-Frame-Options": "DENY",
-                "X-Content-Type-Options": "nosniff",
-                "Referrer-Policy": "strict-origin-when-cross-origin",
-                "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-                "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
-                "Cross-Origin-Opener-Policy": "same-origin",
-                "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://eu-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://eu.i.posthog.com https://eu-assets.i.posthog.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
-            }
+            "source": "/api/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store, max-age=0"
+                }
+            ]
         }
     ]
 }

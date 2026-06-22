@@ -11,13 +11,14 @@ const vercel = JSON.parse(
     fs.readFileSync(path.join(dir, '..', '..', '..', 'vercel.json'), 'utf8')
 );
 
-function headersFor(srcSpec) {
-    const route = (vercel.routes || []).find((r) => r.src === srcSpec);
-    return (route && route.headers) || {};
+function headersFor(sourceSpec) {
+    const block = (vercel.headers || []).find((h) => h.source === sourceSpec);
+    if (!block) return {};
+    return Object.fromEntries(block.headers.map((h) => [h.key, h.value]));
 }
 
 describe('vercel.json security headers', () => {
-    // Find whichever route block actually carries the CSP (the HTML routes).
+    // Find whichever header block actually carries the CSP (the HTML/catch-all block).
     const candidates = ['/(.*)', '/'];
     const htmlHeaders =
         candidates.map(headersFor).find((h) => h['Content-Security-Policy']) || {};
