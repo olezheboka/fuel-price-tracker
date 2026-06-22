@@ -5,6 +5,7 @@ const resources = {
     en: {
         translation: {
             app_title: "cenometrs.lv",
+            seo_h1: 'Fuel prices in Latvia today',
             price: 'Price',
             latest: 'Latest',
             current_prices: 'Fuel prices',
@@ -108,6 +109,7 @@ const resources = {
     lv: {
         translation: {
             app_title: "cenometrs.lv",
+            seo_h1: 'Degvielas cenas Latvijā šodien',
             price: 'Cena',
             latest: 'Jaunākie',
             current_prices: 'Degvielas cenas',
@@ -210,6 +212,7 @@ const resources = {
     ru: {
         translation: {
             app_title: "cenometrs.lv",
+            seo_h1: 'Цены на топливо в Латвии сегодня',
             price: 'Цена',
             latest: 'Последние',
             current_prices: 'Цены на топливо',
@@ -311,23 +314,30 @@ const resources = {
     }
 };
 
-// Get initial language from URL params or localStorage
-const getInitialLanguage = () => {
-    // Check URL params first
-    const params = new URLSearchParams(window.location.search);
-    const langParam = params.get('lang');
-    if (langParam && ['en', 'lv', 'ru'].includes(langParam)) {
-        return langParam;
-    }
+export const SUPPORTED_LANGS = ['lv', 'ru', 'en'];
+export const DEFAULT_LANG = 'lv';
 
-    // Then check localStorage
+// The language is encoded in the URL path: /lv/, /ru/, /en/. Each is a distinct,
+// prerendered, separately-indexable document (canonical + hreflang). The path is
+// the source of truth; localStorage only carries a returning visitor's choice for
+// the bare `/` entry (which production 301s to /<DEFAULT_LANG>/ anyway).
+export const langFromPath = (pathname = window.location.pathname) => {
+    const seg = pathname.split('/').filter(Boolean)[0];
+    return SUPPORTED_LANGS.includes(seg) ? seg : null;
+};
+
+// Path → localStorage → default. The legacy `?lang=` param is no longer read:
+// language now lives in the path so each language has one canonical URL.
+const getInitialLanguage = () => {
+    const fromPath = langFromPath();
+    if (fromPath) return fromPath;
+
     const storedLang = localStorage.getItem('i18nextLng');
-    if (storedLang && ['en', 'lv', 'ru'].includes(storedLang)) {
+    if (storedLang && SUPPORTED_LANGS.includes(storedLang)) {
         return storedLang;
     }
 
-    // Default to English
-    return 'en';
+    return DEFAULT_LANG;
 };
 
 i18n
@@ -335,7 +345,7 @@ i18n
     .init({
         resources,
         lng: getInitialLanguage(),
-        fallbackLng: "en",
+        fallbackLng: DEFAULT_LANG,
         interpolation: {
             escapeValue: true
         }

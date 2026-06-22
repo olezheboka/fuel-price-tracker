@@ -2054,13 +2054,10 @@ export default function App() {
     // Create fresh params to avoid keeping deprecated parameters
     const params = new URLSearchParams();
 
-    // Sync Language — persist to localStorage always, but omit the default ('en')
-    // from the URL so a fresh visit stays clean.
-    const currentLang = i18n.language;
-    if (currentLang) {
-      localStorage.setItem('i18nextLng', currentLang);
-      if (currentLang !== 'en') params.set('lang', currentLang);
-    }
+    // Language lives in the URL path (/lv/, /ru/, /en/), not a query param, so each
+    // language has exactly one canonical URL. We only persist the choice for the
+    // bare `/` entry; switching language navigates (see LanguageDropdown onChange).
+    if (i18n.language) localStorage.setItem('i18nextLng', i18n.language);
 
     // Sync Discounts — default is 'on', so only write the param when toggled off.
     if (!showDiscounts) params.set('discounts', 'off');
@@ -2145,7 +2142,7 @@ export default function App() {
       <header className="relative z-40 bg-white/95 backdrop-blur-xl border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-6 flex items-center justify-between py-5">
           <a
-            href="/"
+            href={`/${i18n.language}/`}
             className="font-bold text-gray-900 tracking-tight hover:text-gray-600 transition-colors duration-300 ease-out cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis mr-4 text-xl sm:text-2xl leading-tight motion-reduce:transition-none"
           >
             {t('app_title')}
@@ -2153,7 +2150,15 @@ export default function App() {
           <LanguageDropdown
             lngs={lngs}
             currentLng={i18n.language}
-            onChange={(val) => i18n.changeLanguage(val)}
+            onChange={(val) => {
+              if (val === i18n.language) return;
+              // Each language is a separate, prerendered, canonical document
+              // (/lv/, /ru/, /en/). Navigate (preserving the current filters in
+              // the query string) so the new language's meta/canonical/hreflang
+              // load correctly instead of changing language in place.
+              try { localStorage.setItem('i18nextLng', val); } catch { /* storage may be unavailable */ }
+              window.location.assign(`/${val}/${window.location.search}`);
+            }}
             compact={false}
           />
         </div>
@@ -2212,6 +2217,12 @@ export default function App() {
         {/* Fuel Prices */}
         <section>
           <Card className="p-3 sm:p-6">
+            {/* Single, localized, keyword-bearing page heading (one H1 per page).
+                Each language path renders its own — the SEO signal for "degvielas
+                cenas" / "цены на топливо" / "fuel prices" in Latvia. */}
+            <h1 className="text-base sm:text-lg font-bold text-gray-900 mb-3">
+              {t('seo_h1')}
+            </h1>
             {lastCheck && (
               <div className="flex items-center justify-start gap-1.5 sm:gap-2 text-gray-400 mb-2">
                 <span className="text-[10px] sm:text-xs font-medium">

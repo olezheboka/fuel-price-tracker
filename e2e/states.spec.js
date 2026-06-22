@@ -10,7 +10,7 @@ test('should_render_without_crashing_when_the_api_returns_no_data', async ({ pag
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/i.test(m.text())) jsErrors.push(m.text()); });
 
   await mockApi(page, { latest: [], history: [] });
-  await page.goto('/');
+  await page.goto('/lv/');
 
   // Shell still renders (no white screen) and no prices are shown.
   await expect(page.getByText('cenometrs.lv').first()).toBeVisible();
@@ -20,7 +20,7 @@ test('should_render_without_crashing_when_the_api_returns_no_data', async ({ pag
 
 test('should_show_an_error_toast_when_a_refresh_fails', async ({ page }) => {
   await mockApi(page);
-  await page.goto('/');
+  await page.goto('/en/');
   await expect(page.getByText(/\b\d\.\d{3}\b/).first()).toBeVisible(); // data loaded first
 
   // Make every API call fail, then trigger a manual refresh.

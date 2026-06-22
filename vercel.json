@@ -26,7 +26,21 @@
         },
         {
             "src": "/",
-            "dest": "/client/index.html",
+            "status": 308,
+            "headers": {
+                "Location": "/lv/"
+            }
+        },
+        {
+            "src": "/(lv|ru|en)",
+            "status": 308,
+            "headers": {
+                "Location": "/$1/"
+            }
+        },
+        {
+            "src": "/(lv|ru|en)/",
+            "dest": "/client/$1/index.html",
             "headers": {
                 "X-Frame-Options": "DENY",
                 "X-Content-Type-Options": "nosniff",

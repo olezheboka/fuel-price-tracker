@@ -17,7 +17,7 @@ test.describe('home page', () => {
     });
 
     await mockApi(page);
-    await page.goto('/');
+    await page.goto('/lv/');
 
     // App shell mounted.
     await expect(page.locator('#root')).not.toBeEmpty();
@@ -35,7 +35,7 @@ test.describe('home page', () => {
   test('should_render_without_horizontal_overflow_on_mobile', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile-webkit', 'mobile-only check');
     await mockApi(page);
-    await page.goto('/');
+    await page.goto('/lv/');
     await expect(page.locator('#root')).not.toBeEmpty();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth

@@ -8,9 +8,11 @@ import { mockApi } from './fixtures/mock-api.js';
 // Note: fuel/station labels are title-case in the DOM ("95 Petrol") and only
 // uppercased via CSS, so locators use the DOM casing.
 
+// These flows assert English DOM labels ("95 Petrol", etc.), so they run against
+// the /en/ language document (language now lives in the URL path).
 test.beforeEach(async ({ page }) => {
   await mockApi(page);
-  await page.goto('/');
+  await page.goto('/en/');
   await expect(page.getByText(/\b\d\.\d{3}\b/).first()).toBeVisible(); // data rendered
 });
 
@@ -62,7 +64,7 @@ test('should_restore_filters_from_the_url_after_reload', async ({ page }) => {
 });
 
 test('should_deep_link_station_and_fuel_filters', async ({ page }) => {
-  await page.goto('/?stations=Neste&fuels=95');
+  await page.goto('/en/?stations=Neste&fuels=95');
   await expect(page.getByText('95 Petrol').first()).toBeVisible();
   await expect(page.getByText('98 Petrol')).toHaveCount(0);
   await expect(page.getByText('Viada')).toHaveCount(0);
