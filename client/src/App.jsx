@@ -442,27 +442,31 @@ const AddressChip = ({ addr, url, isMarker = false }) => {
             everywhere" marker is a long sentence and must wrap to fit the card. */}
         <span className={clsx("underline underline-offset-2", isMarker ? "whitespace-normal break-words" : "whitespace-nowrap")}>{addr}</span>
       </a>
-      {/* Copy makes sense for a real address, not for the marker sentence. */}
-      {!isMarker && <button
-        onClick={handleCopy}
-        className={clsx(
-          "ml-1 p-0.5 rounded transition-all",
-          copied
-            ? "text-green-600"
-            : "text-gray-300 hover:text-gray-600 active:scale-90"
-        )}
-        aria-label={`Copy ${addr}`}
-      >
-        {copied ? <Check size={10} /> : <Copy size={10} />}
-      </button>}
-      <span
-        className={clsx(
-          "absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[9px] font-medium px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none z-10 transition-all duration-200",
-          copied ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
-        )}
-      >
-        {t('copied')}
-      </span>
+      {/* Copy makes sense for a real address, not for the marker sentence.
+          The "copied!" tooltip is anchored to THIS button (relative wrapper),
+          not the whole chip, so it pops up right above the icon you clicked. */}
+      {!isMarker && <span className="relative inline-flex">
+        <button
+          onClick={handleCopy}
+          className={clsx(
+            "ml-1 p-0.5 rounded transition-all",
+            copied
+              ? "text-green-600"
+              : "text-gray-300 hover:text-gray-600 active:scale-90"
+          )}
+          aria-label={`Copy ${addr}`}
+        >
+          {copied ? <Check size={10} /> : <Copy size={10} />}
+        </button>
+        <span
+          className={clsx(
+            "absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[9px] font-medium px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none z-10 transition-all duration-200",
+            copied ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+          )}
+        >
+          {t('copied')}
+        </span>
+      </span>}
     </span>
   );
 };
