@@ -1,11 +1,14 @@
 import { serializeForScript } from './edge-serialize.js';
 
-// Run on the three canonical language homes. `/` is 301'd to /lv/ by vercel.json,
-// and the no-trailing-slash variants (/lv) are 301'd to /lv/ too, so by the time
-// we run the path is already canonical. Extend this list when language-prefixed
-// landing pages (e.g. /lv/neste) are added.
+// Run on the three canonical language homes, plus the bare `/` entry (which we
+// redirect here rather than via a static vercel.json rule, so a returning
+// visitor's `lang` cookie can send them to their remembered language instead of
+// always defaulting to lv). The no-trailing-slash variants (/lv) are still
+// 308'd to /lv/ by vercel.json, so by the time we run those paths are already
+// canonical. Extend this list when language-prefixed landing pages (e.g.
+// /lv/neste) are added.
 export const config = {
-  matcher: ['/lv/', '/ru/', '/en/'],
+  matcher: ['/', '/lv/', '/ru/', '/en/'],
 };
 
 export { serializeForScript };
@@ -25,6 +28,12 @@ const escHtml = (s) =>
 function langFromPath(pathname) {
   const seg = pathname.split('/').filter(Boolean)[0];
   return LABELS[seg] ? seg : 'lv';
+}
+
+function getCookie(request, name) {
+  const header = request.headers.get('cookie') || '';
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 // Build a compact, crawlable table from the latest-prices array
@@ -49,6 +58,15 @@ export default async function middleware(request) {
   // 1. Only intercept GET, and avoid looping on the bypass fetch below.
   if (request.method !== 'GET' || url.searchParams.has('_middleware_skip')) {
     return;
+  }
+
+  // 1a. Bare `/` → redirect to the visitor's remembered language (cookie set by
+  // the client whenever it resolves/changes language), falling back to lv for
+  // first-time visitors and crawlers.
+  if (url.pathname === '/') {
+    const cookieLang = getCookie(request, 'lang');
+    const lang = LABELS[cookieLang] ? cookieLang : 'lv';
+    return Response.redirect(new URL(`/${lang}/`, url), 308);
   }
 
   const blobUrl = process.env.BLOB_URL_PREFIX;

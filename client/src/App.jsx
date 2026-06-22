@@ -13,6 +13,7 @@ import MultiSelect from './components/ui/MultiSelect';
 import ErrorBoundary from './ErrorBoundary';
 import { fmtRigaYmd } from './lib/dates.js';
 import { hexToRgba } from './lib/format.js';
+import { setLangCookie } from './i18n';
 import { FUEL_COLORS, STATIONS, STATION_ORDER, STATION_FUEL_SUPPORT, FUEL_GROUPS, FUEL_GROUP_IDS, NESTE_TYPE_TO_GROUP, fuelGroupId, stationKey } from './lib/fuel.js';
 import { DISCOUNT_COLOR, DISCOUNT_MARKER_RE, EXTERNAL_DISCOUNT_RE, droppedEnough, isDiscountDay } from './lib/discounts.js';
 import { initFilterSet } from './lib/filters.js';
@@ -2057,7 +2058,10 @@ export default function App() {
     // Language lives in the URL path (/lv/, /ru/, /en/), not a query param, so each
     // language has exactly one canonical URL. We only persist the choice for the
     // bare `/` entry; switching language navigates (see LanguageDropdown onChange).
-    if (i18n.language) localStorage.setItem('i18nextLng', i18n.language);
+    if (i18n.language) {
+      localStorage.setItem('i18nextLng', i18n.language);
+      setLangCookie(i18n.language);
+    }
 
     // Sync Discounts — default is 'on', so only write the param when toggled off.
     if (!showDiscounts) params.set('discounts', 'off');
@@ -2157,6 +2161,7 @@ export default function App() {
               // the query string) so the new language's meta/canonical/hreflang
               // load correctly instead of changing language in place.
               try { localStorage.setItem('i18nextLng', val); } catch { /* storage may be unavailable */ }
+              setLangCookie(val);
               window.location.assign(`/${val}/${window.location.search}`);
             }}
             compact={false}

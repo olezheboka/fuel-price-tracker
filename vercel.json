@@ -8,11 +8,6 @@
     "outputDirectory": "client/dist",
     "redirects": [
         {
-            "source": "/",
-            "destination": "/lv/",
-            "statusCode": 308
-        },
-        {
             "source": "/(lv|ru|en)",
             "destination": "/$1/",
             "statusCode": 308

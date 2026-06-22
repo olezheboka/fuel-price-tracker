@@ -340,6 +340,17 @@ const getInitialLanguage = () => {
     return DEFAULT_LANG;
 };
 
+// Mirrors the language choice into a cookie so the edge middleware can redirect
+// a returning visitor's bare `/` to their remembered language (localStorage isn't
+// readable server-side, so without this every `/` visit fell back to DEFAULT_LANG).
+export const LANG_COOKIE = 'lang';
+
+export const setLangCookie = (lang) => {
+    try {
+        document.cookie = `${LANG_COOKIE}=${lang}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    } catch { /* cookies may be unavailable (e.g. blocked storage) */ }
+};
+
 i18n
     .use(initReactI18next)
     .init({
