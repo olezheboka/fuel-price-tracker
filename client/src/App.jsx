@@ -1631,6 +1631,15 @@ export default function App() {
     }
     return null;
   });
+  // The SSR-injected __INITIAL_PRICES__ timestamp comes from the Blob snapshot,
+  // which we deliberately rewrite only on price change / every couple hours to
+  // keep Blob writes low — so it can lag the real last-scrape time. We therefore
+  // treat the displayed "prices updated" time as UNCONFIRMED until the DB-backed
+  // /prices/latest fetch returns the authoritative scrape time. Prices still
+  // paint instantly from the Blob (LCP); only this label waits ~1 round-trip, so
+  // the user never sees a stale timestamp on open/refresh. Stays true after the
+  // first confirmation, so the 5-min poll updates the value without re-flashing.
+  const [tsConfirmed, setTsConfirmed] = useState(false);
   const [notification, setNotification] = useState(null);
   // Transient "checked just now" feedback after a manual refresh. lastCheck shows
   // when the *data* is from (server scrape time); this confirms the click did
@@ -1979,11 +1988,16 @@ export default function App() {
         if (newPrices.length > 0) {
           setLastCheck(newPrices[0].timestamp);
         }
+        // Authoritative DB scrape time received — safe to show the timestamp.
+        setTsConfirmed(true);
       })
       .catch(err => {
         console.error(err);
         // Surface a manual refresh failure instead of silently keeping old data.
         if (showNotification) setNotification({ kind: 'error' });
+        // First-load fetch failed: fall back to the (possibly stale) Blob
+        // timestamp rather than leaving an indefinite placeholder.
+        setTsConfirmed(true);
       })
       .finally(() => setLoading(false));
 
@@ -2329,6 +2343,8 @@ export default function App() {
                 <span className="text-[10px] sm:text-xs font-medium">
                   {justChecked
                     ? t('checked_just_now')
+                    : !tsConfirmed
+                    ? `${t('updated')}: …`
                     : `${t('updated')}: ${new Date(lastCheck).toLocaleString(i18n.language === 'en' ? 'en-GB' : i18n.language, {
                         timeZone: 'Europe/Riga',
                         day: '2-digit',
