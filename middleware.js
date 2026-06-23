@@ -1,14 +1,25 @@
 import { serializeForScript } from './edge-serialize.js';
+import { PAGES, PAGE_META, pageFromPath } from './client/src/lib/seo-meta.js';
+import { fuelGroupId, stationKey } from './client/src/lib/fuel.js';
 
-// Run on the three canonical language homes, plus the bare `/` entry (which we
-// redirect here rather than via a static vercel.json rule, so a returning
-// visitor's `lang` cookie can send them to their remembered language instead of
-// always defaulting to lv). The no-trailing-slash variants (/lv) are still
-// 308'd to /lv/ by vercel.json, so by the time we run those paths are already
-// canonical. Extend this list when language-prefixed landing pages (e.g.
-// /lv/neste) are added.
+// Run on the three canonical language homes, the bare `/` entry (redirected here
+// rather than via a static vercel.json rule, so a returning visitor's `lang`
+// cookie can send them to their remembered language instead of always
+// defaulting to lv), and every provider/fuel landing page (P1). The
+// no-trailing-slash variants (/lv) are still 308'd to /lv/ by vercel.json, so by
+// the time we run those paths are already canonical.
+//
+// Must stay a literal array — Vercel statically parses `config.matcher` to wire
+// up routing middleware, so a computed expression here (e.g. built from PAGES)
+// would silently fail to register, the same class of bug fixed for this file
+// once already (see git history: migrating off legacy vercel.json builds/routes).
 export const config = {
-  matcher: ['/', '/lv/', '/ru/', '/en/'],
+  matcher: [
+    '/', '/lv/', '/ru/', '/en/',
+    '/lv/neste/', '/lv/circle-k/', '/lv/virsi/', '/lv/viada/', '/lv/95/', '/lv/98/', '/lv/diesel/', '/lv/pro/', '/lv/gas/',
+    '/ru/neste/', '/ru/circle-k/', '/ru/virsi/', '/ru/viada/', '/ru/95/', '/ru/98/', '/ru/diesel/', '/ru/pro/', '/ru/gas/',
+    '/en/neste/', '/en/circle-k/', '/en/virsi/', '/en/viada/', '/en/95/', '/en/98/', '/en/diesel/', '/en/pro/', '/en/gas/',
+  ],
 };
 
 export { serializeForScript };
@@ -38,16 +49,21 @@ function getCookie(request, name) {
 
 // Build a compact, crawlable table from the latest-prices array
 // ([{ type, price, source, ... }]). Station + fuel + per-litre price = the keyword
-// + freshness signal we want in the raw HTML.
-function buildSeoBlock(prices, lang) {
+// + freshness signal we want in the raw HTML. `page` (from pageFromPath), when
+// present, narrows the rows to that one station/fuel and swaps in its own h1.
+function buildSeoBlock(prices, lang, page) {
   const L = LABELS[lang] || LABELS.lv;
-  const rows = (Array.isArray(prices) ? prices : [])
+  const h1 = page ? PAGE_META[page.slug][lang].h1 : L.h1;
+  let filtered = Array.isArray(prices) ? prices : [];
+  if (page?.kind === 'station') filtered = filtered.filter((p) => stationKey(p) === page.filterId);
+  if (page?.kind === 'fuel') filtered = filtered.filter((p) => fuelGroupId(p) === page.filterId);
+  const rows = filtered
     .filter((p) => p && typeof p.price === 'number')
     .sort((a, b) => String(a.source || '').localeCompare(String(b.source || '')) ||
       String(a.type || '').localeCompare(String(b.type || '')))
     .map((p) => `<tr><td>${escHtml(p.source || '')}</td><td>${escHtml(p.type || '')}</td><td>${p.price.toFixed(3)} €/l</td></tr>`)
     .join('');
-  return `<div id="seo-prices"><h1>${escHtml(L.h1)}</h1>` +
+  return `<div id="seo-prices"><h1>${escHtml(h1)}</h1>` +
     `<table><thead><tr><th>${escHtml(L.station)}</th><th>${escHtml(L.fuel)}</th><th>${escHtml(L.price)}</th></tr></thead>` +
     `<tbody>${rows}</tbody></table></div>`;
 }
@@ -76,6 +92,7 @@ export default async function middleware(request) {
   }
 
   const lang = langFromPath(url.pathname);
+  const page = pageFromPath(url.pathname);
 
   try {
     // 2. Latest prices from Blob CDN (warm, <10ms).
@@ -105,7 +122,7 @@ export default async function middleware(request) {
       : html.replace('</head>', `${injection}\n</head>`);
 
     // 4b. Inject the crawlable price snapshot into #root (React overwrites it on mount).
-    const seoBlock = buildSeoBlock(latestPrices, lang);
+    const seoBlock = buildSeoBlock(latestPrices, lang, page);
     html = html.replace('<div id="root"></div>', `<div id="root">${seoBlock}</div>`);
 
     // 5. Return the modified HTML, preserving the origin's security headers.

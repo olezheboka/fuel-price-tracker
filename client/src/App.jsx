@@ -17,6 +17,7 @@ import { setLangCookie } from './i18n';
 import { FUEL_COLORS, STATIONS, STATION_ORDER, STATION_FUEL_SUPPORT, FUEL_GROUPS, FUEL_GROUP_IDS, NESTE_TYPE_TO_GROUP, fuelGroupId, stationKey } from './lib/fuel.js';
 import { DISCOUNT_COLOR, DISCOUNT_MARKER_RE, EXTERNAL_DISCOUNT_RE, droppedEnough, isDiscountDay } from './lib/discounts.js';
 import { initFilterSet } from './lib/filters.js';
+import { pageFromPath } from './lib/seo-meta.js';
 import { buildChartData, defaultBrushWindow, resolveBrushFromDates } from './lib/chart.js';
 
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
@@ -1605,9 +1606,22 @@ export default function App() {
     return stored === null ? true : stored === 'true';
   });
 
-  // Client-side station / fuel filters for the prices view (default: all).
-  const [selectedStations, setSelectedStations] = useState(() => initFilterSet('stations', 'selectedStations', STATION_ORDER));
-  const [selectedFuels, setSelectedFuels] = useState(() => initFilterSet('fuels', 'selectedFuels', FUEL_GROUP_IDS));
+  // Client-side station / fuel filters for the prices view (default: all). A
+  // provider/fuel landing page (/lv/neste/, /lv/diesel/, ...) seeds its one
+  // filter value directly from the path, taking precedence over the query
+  // param/localStorage flow below — those pages are canonical single-filter URLs.
+  const [selectedStations, setSelectedStations] = useState(() => {
+    const page = pageFromPath();
+    if (page?.kind === 'station') return new Set([page.filterId]);
+    if (page?.kind === 'fuel') return new Set(STATION_ORDER);
+    return initFilterSet('stations', 'selectedStations', STATION_ORDER);
+  });
+  const [selectedFuels, setSelectedFuels] = useState(() => {
+    const page = pageFromPath();
+    if (page?.kind === 'fuel') return new Set([page.filterId]);
+    if (page?.kind === 'station') return new Set(FUEL_GROUP_IDS);
+    return initFilterSet('fuels', 'selectedFuels', FUEL_GROUP_IDS);
+  });
 
   // Fuels actually sold by the currently selected stations. A group disappears
   // when no selected station sells it — gas drops for Neste-only, premium diesel
@@ -2157,12 +2171,15 @@ export default function App() {
             onChange={(val) => {
               if (val === i18n.language) return;
               // Each language is a separate, prerendered, canonical document
-              // (/lv/, /ru/, /en/). Navigate (preserving the current filters in
-              // the query string) so the new language's meta/canonical/hreflang
-              // load correctly instead of changing language in place.
+              // (/lv/, /ru/, /en/, and per-page /lv/diesel/ etc.). Navigate
+              // (preserving the current page slug and filters in the query
+              // string) so the new language's meta/canonical/hreflang load
+              // correctly instead of changing language in place.
               try { localStorage.setItem('i18nextLng', val); } catch { /* storage may be unavailable */ }
               setLangCookie(val);
-              window.location.assign(`/${val}/${window.location.search}`);
+              const page = pageFromPath();
+              const slugPart = page ? `${page.slug}/` : '';
+              window.location.assign(`/${val}/${slugPart}${window.location.search}`);
             }}
             compact={false}
           />
