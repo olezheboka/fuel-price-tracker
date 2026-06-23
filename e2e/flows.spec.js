@@ -23,8 +23,10 @@ test('should_filter_to_one_provider_via_the_stations_dropdown', async ({ page })
   await page.mouse.click(2, 2); // outside-click to dismiss the popover before asserting
 
   await expect(page).toHaveURL(/stations=Neste/);
-  await expect(page.getByText('Viada')).toHaveCount(0);     // other chains gone (global filter)
-  await expect(page.getByText('Circle K')).toHaveCount(0);
+  // Scoped to <main>: the footer always links to all stations/fuels regardless
+  // of the active filter, so an unscoped getByText would match it too.
+  await expect(page.locator('main').getByText('Viada')).toHaveCount(0);     // other chains gone (global filter)
+  await expect(page.locator('main').getByText('Circle K')).toHaveCount(0);
 });
 
 test('should_filter_to_one_fuel_via_the_fuel_dropdown', async ({ page }) => {
@@ -34,8 +36,8 @@ test('should_filter_to_one_fuel_via_the_fuel_dropdown', async ({ page }) => {
   await page.mouse.click(2, 2); // outside-click to dismiss the popover
 
   await expect(page).toHaveURL(/fuels=95/);
-  await expect(page.getByText('95 Petrol').first()).toBeVisible();
-  await expect(page.getByText('98 Petrol')).toHaveCount(0);
+  await expect(page.locator('main').getByText('95 Petrol').first()).toBeVisible();
+  await expect(page.locator('main').getByText('98 Petrol')).toHaveCount(0);
 });
 
 test('should_toggle_discount_shading_on_and_off', async ({ page }) => {
@@ -60,14 +62,14 @@ test('should_restore_filters_from_the_url_after_reload', async ({ page }) => {
 
   await page.reload();
   await expect(page).toHaveURL(/stations=Neste/);
-  await expect(page.getByText('Viada')).toHaveCount(0); // filter persisted
+  await expect(page.locator('main').getByText('Viada')).toHaveCount(0); // filter persisted
 });
 
 test('should_deep_link_station_and_fuel_filters', async ({ page }) => {
   await page.goto('/en/?stations=Neste&fuels=95');
-  await expect(page.getByText('95 Petrol').first()).toBeVisible();
-  await expect(page.getByText('98 Petrol')).toHaveCount(0);
-  await expect(page.getByText('Viada')).toHaveCount(0);
+  await expect(page.locator('main').getByText('95 Petrol').first()).toBeVisible();
+  await expect(page.locator('main').getByText('98 Petrol')).toHaveCount(0);
+  await expect(page.locator('main').getByText('Viada')).toHaveCount(0);
 });
 
 test('should_render_the_charts_and_timeline_slider', async ({ page }) => {
