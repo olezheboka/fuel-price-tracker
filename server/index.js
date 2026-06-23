@@ -264,10 +264,18 @@ async function getFreshSnapshot() {
     let snap = getMemory();
     if (snap && getMemoryAge() < SNAPSHOT_TTL_MS) return snap;
 
+    // Cold start: hydrate from Blob so we have a baseline (and a fallback if the
+    // DB is unreachable below) — but DO NOT return it on the freshly-set memory
+    // age. The Blob trails the DB (it's only rewritten on price change / every
+    // LATEST_MAX_AGE_MS, and is itself CDN-cached), so trusting a just-hydrated
+    // Blob here served a stale "prices updated" timestamp for the first request
+    // on every cold instance. That surfaced right after each deploy — when ALL
+    // instances are cold at once — as a frozen date that "fixed itself" later
+    // once instances warmed. Fall through to the DB probe so a cold instance is
+    // DB-accurate from its very first request.
     if (!snap) {
         await hydratePromise;
         snap = getMemory();
-        if (snap && getMemoryAge() < SNAPSHOT_TTL_MS) return snap;
     }
 
     try {
