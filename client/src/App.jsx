@@ -17,7 +17,7 @@ import { setLangCookie } from './i18n';
 import { FUEL_COLORS, STATIONS, STATION_ORDER, STATION_FUEL_SUPPORT, FUEL_GROUPS, FUEL_GROUP_IDS, NESTE_TYPE_TO_GROUP, fuelGroupId, stationKey } from './lib/fuel.js';
 import { DISCOUNT_COLOR, DISCOUNT_MARKER_RE, EXTERNAL_DISCOUNT_RE, droppedEnough, isDiscountDay } from './lib/discounts.js';
 import { initFilterSet } from './lib/filters.js';
-import { pageFromPath } from './lib/seo-meta.js';
+import { pageFromPath, pagePath, PAGES } from './lib/seo-meta.js';
 import { buildChartData, defaultBrushWindow, resolveBrushFromDates } from './lib/chart.js';
 
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
@@ -162,6 +162,44 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
       </div>
     );
   };
+
+// Internal links to the P1 provider/fuel landing pages — without these the 27
+// pages are only reachable via the sitemap, which crawlers treat as a much
+// weaker discovery/relevance signal than an actual on-site link.
+const SiteFooter = ({ lang, t }) => {
+  const stationPages = PAGES.filter((p) => p.kind === 'station');
+  const fuelPages = PAGES.filter((p) => p.kind === 'fuel');
+  return (
+    <footer className="max-w-5xl mx-auto px-6 py-10 mt-4 border-t border-gray-200 text-sm text-gray-500">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+        <div>
+          <div className="font-semibold text-gray-700 mb-2">{t('footer_by_station')}</div>
+          <ul className="space-y-1.5">
+            {stationPages.map((p) => (
+              <li key={p.slug}>
+                <a href={pagePath(lang, p.slug)} className="hover:text-gray-900 transition-colors">
+                  {STATIONS[p.filterId].label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="font-semibold text-gray-700 mb-2">{t('footer_by_fuel')}</div>
+          <ul className="space-y-1.5">
+            {fuelPages.map((p) => (
+              <li key={p.slug}>
+                <a href={pagePath(lang, p.slug)} className="hover:text-gray-900 transition-colors">
+                  {t(FUEL_GROUPS.find((g) => g.id === p.filterId).labelKey)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </footer>
+  );
+};
 
 // Clean Card Component
 const Card = ({ children, className }) => (
@@ -2493,6 +2531,8 @@ export default function App() {
         <div className="h-8" />
 
       </main>
+
+      <SiteFooter lang={i18n.language} t={t} />
     </div >
   );
 }
