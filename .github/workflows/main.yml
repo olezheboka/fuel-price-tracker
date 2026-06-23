@@ -81,7 +81,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Deploy to Vercel (production)
-        run: npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+        # Pinned (not @latest): npx resolving "latest" right after a fresh vercel
+        # CLI publish can hit registry/CDN propagation lag on the runner and 404
+        # ("No matching version found") even though the version exists.
+        run: npx vercel@54.14.5 deploy --prod --yes --token "$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
