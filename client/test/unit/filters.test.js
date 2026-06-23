@@ -28,28 +28,27 @@ describe('serializeFilterSet (omit-when-default)', () => {
   });
 });
 
-describe('initFilterSet (URL > localStorage > default-all)', () => {
+describe('initFilterSet (URL > persisted fallback > default-all)', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
-    localStorage.clear();
   });
 
   it('should_read_from_the_url_param_first', () => {
     window.history.replaceState({}, '', '/?stations=Neste,Viada');
-    expect([...initFilterSet('stations', 'lsStations', ALL)].sort()).toEqual(['Neste', 'Viada']);
+    // URL wins even when a (different) persisted fallback is supplied.
+    expect([...initFilterSet('stations', ALL, 'CircleK')].sort()).toEqual(['Neste', 'Viada']);
   });
 
-  it('should_fall_back_to_localStorage', () => {
-    localStorage.setItem('lsStations', 'CircleK');
-    expect([...initFilterSet('stations', 'lsStations', ALL)]).toEqual(['CircleK']);
+  it('should_fall_back_to_the_persisted_raw_value', () => {
+    expect([...initFilterSet('stations', ALL, 'CircleK')]).toEqual(['CircleK']);
   });
 
   it('should_default_to_all_when_nothing_set', () => {
-    expect([...initFilterSet('stations', 'lsStations', ALL)].sort()).toEqual([...ALL].sort());
+    expect([...initFilterSet('stations', ALL)].sort()).toEqual([...ALL].sort());
   });
 
   it('should_default_to_all_when_the_url_value_is_garbage', () => {
     window.history.replaceState({}, '', '/?stations=%E2%98%A0');
-    expect([...initFilterSet('stations', 'lsStations', ALL)].sort()).toEqual([...ALL].sort());
+    expect([...initFilterSet('stations', ALL)].sort()).toEqual([...ALL].sort());
   });
 });
