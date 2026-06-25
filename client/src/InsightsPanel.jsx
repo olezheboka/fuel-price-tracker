@@ -56,13 +56,15 @@ export default function PriceChangeCards({ groups, todayKey }) {
     // 24h cutoff stays rolling/intraday (sub-day granularity matters there).
     const cutoff24h = useMemo(() => getEndOfDayInLatvia(new Date(new Date().getTime() - 24 * 60 * 60 * 1000)), []);
 
-    // 7d/30d/90d targets are calendar-day buckets, aligned with the History
-    // table's presets: an "N day" window spans N calendar days inclusive of
-    // today, so the baseline is today minus (N-1) days (e.g. "7d" -> today-6,
-    // matching the table's 7-day preset start date). This keeps Dynamics and
-    // the table/chart agreeing on what "N days ago" means.
+    // 7d/30d/90d targets are calendar-day buckets: the baseline is exactly
+    // today minus N days (e.g. "7d" -> today-7), the literal "N days ago"
+    // reference point for a delta. This is one day earlier than the History
+    // table's N-day preset *window start* (today-(N-1), since that window
+    // shows N days inclusive of today) — the two are different concepts by
+    // design, not a bug: a delta needs "the price N days back", while the
+    // table window needs "the last N calendar days".
     const targetKeys = useMemo(
-        () => PERIODS.map(p => (p.days === 1 ? null : shiftYMD(todayKey, -(p.days - 1)))),
+        () => PERIODS.map(p => (p.days === 1 ? null : shiftYMD(todayKey, -p.days))),
         [todayKey]
     );
 
