@@ -60,10 +60,20 @@ function sigHistory(history) {
         .join('\n');
 }
 
-function setMemory(latest, history) {
+// True only when memory holds DB-sourced (authoritative) data — a post-scrape
+// writeSnapshot or a getFreshSnapshot DB refresh. A Blob hydrate sets this false:
+// the Blob trails the DB, so a freshly-hydrated cold instance must NOT serve it
+// on the warm-path early-return (getMemoryAge() ~0); it has to validate against
+// the DB first. Skipping that check is what made the first ~60s of every cold
+// instance — i.e. every instance right after a deploy — serve the lagging Blob
+// timestamp instead of the latest scrape.
+let memConfirmed = false;
+
+function setMemory(latest, history, confirmed = true) {
     memLatest = latest;
     memHistory = history;
     memWrittenAt = Date.now();
+    memConfirmed = confirmed;
 }
 
 function getMemory() {
@@ -71,11 +81,20 @@ function getMemory() {
     return { latest: memLatest, history: memHistory };
 }
 
+// Whether the current in-memory snapshot is DB-confirmed (vs. a bare Blob hydrate).
+function isMemoryConfirmed() {
+    return memConfirmed;
+}
+
 // Extend the TTL without touching the data — used after a cheap freshness probe
 // confirms the in-memory snapshot still matches the DB, so we skip the full
-// (history) recompute until the next TTL window.
+// (history) recompute until the next TTL window. Also marks memory DB-confirmed,
+// since a probe just validated it against the DB.
 function touchMemory() {
-    if (memLatest && memHistory) memWrittenAt = Date.now();
+    if (memLatest && memHistory) {
+        memWrittenAt = Date.now();
+        memConfirmed = true;
+    }
 }
 
 // Age (ms) of the current in-memory snapshot. Infinity when empty. Used by the
@@ -167,7 +186,9 @@ async function hydrateFromBlob() {
         }
 
         const [latest, history] = await Promise.all([lr.json(), hr.json()]);
-        setMemory(latest, history);
+        // confirmed=false: this is Blob data (trails the DB), so getFreshSnapshot
+        // must validate it against the DB before serving on the warm path.
+        setMemory(latest, history, false);
         // Seed the skip signatures (and latest.json's staleness clock, from the
         // blob's own data timestamp rather than "now") so a freshly-hydrated
         // instance neither redundantly rewrites unchanged content nor resets the
@@ -183,4 +204,4 @@ async function hydrateFromBlob() {
     }
 }
 
-module.exports = { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, setMemory, touchMemory };
+module.exports = { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, isMemoryConfirmed, setMemory, touchMemory };

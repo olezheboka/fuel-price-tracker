@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { initDb, openDb } = require('./db');
 const { scrapeAll } = require('./scrapers');
-const { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, setMemory, touchMemory } = require('./snapshot');
+const { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, isMemoryConfirmed, setMemory, touchMemory } = require('./snapshot');
 
 // Sanitize location strings that may contain MSO/CDATA artifacts from Neste's website
 function cleanLocation(loc) {
@@ -274,7 +274,11 @@ async function latestDbTimestampMs() {
 // since stale data beats a failed request.
 async function getFreshSnapshot() {
     let snap = getMemory();
-    if (snap && getMemoryAge() < SNAPSHOT_TTL_MS) return snap;
+    // Warm path: serve cached memory only if it's DB-confirmed AND within the TTL.
+    // A freshly Blob-hydrated cold instance has snap != null with age ~0 but
+    // memConfirmed=false, so it falls through to the DB probe below instead of
+    // serving the lagging Blob — the fix for "stale timestamp only after deploy".
+    if (snap && isMemoryConfirmed() && getMemoryAge() < SNAPSHOT_TTL_MS) return snap;
 
     // Cold start: hydrate from Blob so we have a baseline (and a fallback if the
     // DB is unreachable below) — but DO NOT return it on the freshly-set memory
