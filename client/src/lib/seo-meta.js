@@ -59,68 +59,68 @@ export const STATION_NAMES = ['Neste', 'Circle K', 'Virši', 'Viada'];
 export const FAQ = {
   lv: [
     {
-      q: 'Kur šodien ir lētākā degviela Latvijā?',
-      a: 'cenometrs.lv salīdzina Neste, Circle K, Virši un Viada cenas un parāda katra tīkla lētāko staciju. Cenas tiek atjauninātas katru stundu, tāpēc vienmēr redzi, kur šodien tankot lētāk.',
+      q: 'Kas ir cenometrs.lv un kā tas darbojas?',
+      a: 'cenometrs.lv galvenais mērķis ir parādīt, kur šobrīd ir lētākā degviela, lai tu ietaupītu pie katras uzpildes. Lapa automātiski apkopo un salīdzina degvielas cenas visā Latvijā — 95 un 98 benzīnu, dīzeli, D+ (prēmijas dīzeli) un gāzi (LPG) — četros lielākajos tīklos: Neste, Circle K, Virši un Viada, sakārtojot tās no lētākās uz dārgāko. Pie katras stacijas ir redzama adrese, tāpēc uzreiz vari atrast, kur tuvumā uzpildīties lētāk. Vari apskatīt arī cenu grafikus, izmaiņas pēdējās dienās un nedēļās un pilnu cenu vēsturi. Tas noder, plānojot uzpildi, izvēloties degvielas tīklu konkrētam ceļojumam vai vienkārši sekojot, kā mainās cenas.',
     },
     {
-      q: 'Kāda ir 95. benzīna un dīzeļa cena šodien?',
-      a: 'Aktuālās 95, 98 benzīna, dīzeļa, D+ un autogāzes cenas redzamas lapas augšā, sašķirotas no lētākās uz dārgāko visos četros lielākajos Latvijas degvielas tīklos.',
+      q: 'No kurienes nāk cenas?',
+      a: 'Visas cenas tiek nolasītas tieši no degvielas tīklu oficiālajām mājaslapām (Neste, Circle K, Virši, Viada), nevis no trešo pušu vai lietotāju ziņotiem datiem — tāpēc tās atbilst stacijās redzamajām cenām.',
     },
     {
       q: 'Cik bieži tiek atjauninātas degvielas cenas?',
-      a: 'Cenas tiek nolasītas automātiski katru stundu, tāpēc dati ir aktuāli visas dienas garumā.',
+      a: 'Cenas tiek nolasītas automātiski vismaz katras 30 minūtes, tāpēc dati ir aktuāli visas dienas garumā.',
     },
     {
-      q: 'Vai varu apskatīt degvielas cenu vēsturi un dinamiku?',
-      a: 'Jā. Sadaļā "Analītika" pieejami cenu grafiki, cenu izmaiņas pēdējās dienās un nedēļās, kā arī vēstures tabula par katru degvielas veidu un staciju.',
+      q: 'Ja mani interesē tikai 95. benzīns, dīzelis vai konkrēts tīkls?',
+      a: 'Izmanto filtrus lapas augšā — atlasi vienu vai vairākus degvielas veidus un/vai stacijas, un visa lapa (cenas, grafiki, dinamika un vēsture) automātiski parādīs tikai to, kas tevi interesē. Izvēle tiek atcerēta nākamajai apmeklējuma reizei.',
     },
     {
-      q: 'Kuras degvielas uzpildes stacijas tiek salīdzinātas?',
-      a: 'Neste, Circle K, Virši un Viada — Latvijas lielākie degvielas tīkli.',
+      q: 'Kāpēc noderīgs cenu grafiks, vēsture un dinamika?',
+      a: 'Vēsturiskie dati parāda, vai cena pēdējās dienās ir kāpusi vai kritusi, palīdz izvēlēties izdevīgāku brīdi lielākai uzpildei un atklāj, kurš tīkls konkrētam degvielas veidam ilgtermiņā ir lētākais — noderīgi ikdienas autovadītājam, kas vēlas plānot izdevumus, nevis tikai redzēt šodienas cenu.',
     },
   ],
   ru: [
     {
-      q: 'Где сегодня дешевле всего заправиться в Латвии?',
-      a: 'cenometrs.lv сравнивает цены Neste, Circle K, Virši и Viada и показывает самую дешёвую заправку каждой сети. Цены обновляются каждый час, поэтому всегда видно, где сегодня заправиться выгоднее.',
+      q: 'Что такое cenometrs.lv и как это работает?',
+      a: 'Главная задача cenometrs.lv — показать, где топливо сейчас дешевле всего, чтобы вы экономили на каждой заправке. Сайт автоматически отслеживает и сравнивает цены на топливо по всей Латвии — бензин 95, 98, дизель, D+ (премиальный дизель) и автогаз (LPG) — на четырёх крупнейших сетях: Neste, Circle K, Virši и Viada, сортируя их от дешёвых к дорогим. У каждой заправки указан адрес, поэтому сразу видно, где можно заправиться дешевле. Также доступны графики цен, динамика изменений за последние дни и недели и полная история цен. Это удобно, когда нужно спланировать заправку, выбрать сеть для конкретной поездки или просто следить за тем, как меняются цены.',
     },
     {
-      q: 'Какая цена бензина 95 и дизеля сегодня?',
-      a: 'Актуальные цены на бензин 95, 98, дизель, D+ и автогаз показаны вверху страницы, отсортированы от дешёвых к дорогим по четырём крупнейшим сетям АЗС Латвии.',
+      q: 'Откуда берутся цены?',
+      a: 'Все цены считываются напрямую с официальных сайтов сетей АЗС (Neste, Circle K, Virši, Viada), а не из сторонних или пользовательских источников — поэтому они совпадают с ценами на самих заправках.',
     },
     {
       q: 'Как часто обновляются цены на топливо?',
-      a: 'Цены считываются автоматически каждый час, поэтому данные актуальны в течение всего дня.',
+      a: 'Цены считываются автоматически не реже чем каждые 30 минут, поэтому данные актуальны в течение всего дня.',
     },
     {
-      q: 'Можно ли посмотреть историю и динамику цен на топливо?',
-      a: 'Да. В разделе «Аналитика» доступны графики цен, изменения за последние дни и недели, а также таблица истории по каждому виду топлива и заправке.',
+      q: 'А если меня интересует только бензин 95, дизель или конкретная сеть?',
+      a: 'Используй фильтры в верхней части страницы — выбери один или несколько видов топлива и/или заправок, и вся страница (цены, графики, динамика и история) автоматически покажет только то, что тебе нужно. Выбор запоминается до следующего визита.',
     },
     {
-      q: 'Какие АЗС сравниваются?',
-      a: 'Neste, Circle K, Virši и Viada — крупнейшие сети АЗС в Латвии.',
+      q: 'Зачем нужны график, история и динамика цен?',
+      a: 'По истории видно, росла или падала цена в последние дни — это помогает выбрать более удачный момент для крупной заправки. А ещё она показывает, какая сеть на конкретном виде топлива в долгосрочной перспективе дешевле. Это полезно обычному водителю, который хочет планировать расходы, а не просто смотреть цену на сегодня.',
     },
   ],
   en: [
     {
-      q: 'Where is the cheapest fuel in Latvia today?',
-      a: 'cenometrs.lv compares Neste, Circle K, Virši and Viada and shows the cheapest station in each network. Prices update every hour, so you always see where to fill up for less today.',
+      q: 'What is cenometrs.lv and how does it work?',
+      a: 'cenometrs.lv\'s main goal is to show you where fuel is cheapest right now, so you save money on every fill-up. It automatically tracks and compares fuel prices across Latvia — 95 and 98 petrol, diesel, D+ (premium diesel) and LPG (autogas) — at the four largest networks: Neste, Circle K, Virši and Viada, sorted from cheapest to most expensive. Each station\'s address is shown so you can immediately see where it\'s cheapest nearby, and you can also explore price charts, day- and week-over-week dynamics, and a full price history. It\'s handy for planning a fill-up, picking a network for a specific trip, or just keeping an eye on how prices move.',
     },
     {
-      q: 'What is the price of 95 petrol and diesel today?',
-      a: 'Current prices for 95, 98 petrol, diesel, D+ and LPG are shown at the top of the page, sorted from cheapest to most expensive across Latvia’s four largest fuel networks.',
+      q: 'Where do the prices come from?',
+      a: 'All prices are read directly from the official fuel provider websites (Neste, Circle K, Virši, Viada) rather than third-party or user-submitted sources, so they match what you\'ll see at the pump.',
     },
     {
       q: 'How often are fuel prices updated?',
-      a: 'Prices are read automatically every hour, so the data stays current throughout the day.',
+      a: 'Prices are read automatically at least every 30 minutes, so the data stays current throughout the day.',
     },
     {
-      q: 'Can I see fuel price history and trends?',
-      a: 'Yes. The Analytics section has price charts, day- and week-over-week changes, and a history table for every fuel type and station.',
+      q: 'What if I only care about 95 petrol, diesel, or one specific station?',
+      a: 'Use the filters at the top of the page — select one or more fuel types and/or stations, and the whole page (prices, charts, dynamics and history) will automatically narrow down to just what you care about. Your selection is remembered for next time.',
     },
     {
-      q: 'Which fuel stations are compared?',
-      a: 'Neste, Circle K, Virši and Viada — Latvia’s largest fuel networks.',
+      q: 'Why bother with the chart, price history or dynamics?',
+      a: 'Historical data shows whether a price has risen or fallen recently, helps you pick a better moment for a bigger fill-up, and reveals which network is cheapest for a given fuel type over the long run — useful for an everyday driver who wants to plan ahead rather than just see today\'s price.',
     },
   ],
 };

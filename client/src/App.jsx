@@ -4,7 +4,7 @@ import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList, ErrorBar } from 'recharts';
 import { useTranslation } from 'react-i18next';
 // framer-motion removed
-import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet, AlertTriangle, CircleDollarSign, Code2 } from 'lucide-react';
+import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet, AlertTriangle, CircleDollarSign, Code2, HelpCircle } from 'lucide-react';
 import StateBlock from './components/StateBlock';
 import { analyticsEmptyProps } from './lib/analyticsEmpty';
 import clsx from 'clsx';
@@ -174,21 +174,32 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
 const HomeFaq = ({ lang, t }) => {
   const items = FAQ[lang] || FAQ.lv;
   return (
-    <section aria-labelledby="faq-heading" className="max-w-5xl mx-auto px-3 sm:px-6 mt-2">
-      <h2 id="faq-heading" className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-        {t('faq_heading')}
-      </h2>
-      <div className="divide-y divide-gray-200 rounded-2xl bg-white shadow-[0_1px_8px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)]">
-        {items.map((it) => (
-          <details key={it.q} className="group px-4 sm:px-5 py-3">
-            <summary className="flex items-center justify-between gap-3 cursor-pointer list-none text-sm sm:text-[15px] font-medium text-gray-900 marker:hidden">
-              {it.q}
-              <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 transition-transform group-open:rotate-180" />
-            </summary>
-            <p className="mt-2 text-sm text-gray-500 leading-relaxed">{it.a}</p>
-          </details>
-        ))}
-      </div>
+    <section aria-labelledby="faq-heading">
+      <Card className="p-0 overflow-hidden">
+        {/* Header inside the card — mirrors the Analytics card header (icon +
+            title on a hairline-bordered strip) so the FAQ reads as a peer card. */}
+        <div className="border-b border-gray-100 px-3 sm:px-6 py-2.5 sm:py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <HelpCircle className="w-4 h-4 text-gray-400 shrink-0" />
+            <h2 id="faq-heading" className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+              {t('faq_heading')}
+            </h2>
+          </div>
+        </div>
+        {/* Accordion rows sit flat on the card's own white surface (no nested
+            card/shadow), separated by hairlines like the table rows elsewhere. */}
+        <div className="divide-y divide-gray-100">
+          {items.map((it) => (
+            <details key={it.q} className="group">
+              <summary className="flex items-center justify-between gap-3 cursor-pointer list-none px-3 sm:px-6 py-4 text-sm sm:text-[15px] font-medium text-gray-900 marker:hidden transition-colors hover:bg-gray-50/70">
+                {it.q}
+                <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+              <p className="px-3 sm:px-6 pb-4 -mt-1 pr-9 sm:pr-12 text-sm text-gray-500 leading-relaxed">{it.a}</p>
+            </details>
+          ))}
+        </div>
+      </Card>
     </section>
   );
 };
@@ -2668,13 +2679,13 @@ export default function App() {
           </Card>
         </section>
 
-        <div className="h-8" />
+        {/* FAQ only on the language home (not the per-station/fuel landing pages),
+            matching where the FAQPage JSON-LD + static #seo-faq block are emitted.
+            Lives inside <main> so the same `space-y-8` gap separates it from the
+            Analytics card as separates every other card. */}
+        {!currentPage && <HomeFaq lang={i18n.language} t={t} />}
 
       </main>
-
-      {/* FAQ only on the language home (not the per-station/fuel landing pages),
-          matching where the FAQPage JSON-LD + static #seo-faq block are emitted. */}
-      {!currentPage && <HomeFaq lang={i18n.language} t={t} />}
 
       <SiteFooter lang={i18n.language} t={t} />
     </div >
