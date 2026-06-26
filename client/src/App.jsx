@@ -594,7 +594,7 @@ const StationRow = ({ rec, isCheapest }) => {
         <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wide" style={{ color: st.color }}>
           {st.label}
         </span>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs md:text-sm text-gray-500 font-medium min-w-0">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 font-medium min-w-0">
           {addressList.length > 0 ? (
             addressList.map((addr, i) => {
               const url = isMarker
