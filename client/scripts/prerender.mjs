@@ -93,7 +93,7 @@ const breadcrumbNode = (lang, pageH1, canonical) => ({
 // `#seo-faq` on mount (main.jsx) and renders its own styled accordion, so this
 // exists purely for crawlers that don't run JS well (Yandex/Bing) — and it matches
 // the FAQPage JSON-LD exactly, as Google requires.
-const faqStyle = 'max-width:760px;margin:8px auto 24px;padding:0 16px;font:15px/1.6 Inter,system-ui,sans-serif;color:#334155;';
+const faqStyle = 'max-width:1024px;margin:8px auto 24px;padding:0 16px;font:15px/1.6 Inter,system-ui,sans-serif;color:#334155;';
 function buildFaqHtml(lang) {
   const items = FAQ[lang]
     .map(({ q, a }) => `<h3 style="font-size:16px;font-weight:700;color:#0f172a;margin:16px 0 4px;">${esc(q)}</h3><p style="margin:0;">${esc(a)}</p>`)
@@ -234,7 +234,15 @@ ${alternatesFor(pathFor)}
   </url>`);
   });
 
-  const urls = [...homeUrls, ...pageUrls].join('\n');
+  // Single-page utility (the embeddable-widget page) — no language variants, so
+  // no hreflang alternates. Indexing it lets it rank for "degvielas cenu logrīks"
+  // and surfaces it to the webmasters who'd embed it (and link back).
+  const widgetUrl = `  <url>
+    <loc>${SITE_ORIGIN}/widget.html</loc>
+    <lastmod>${BUILD_DATE}</lastmod>
+  </url>`;
+
+  const urls = [...homeUrls, ...pageUrls, widgetUrl].join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"

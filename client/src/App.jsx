@@ -4,7 +4,7 @@ import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, LabelList, ErrorBar } from 'recharts';
 import { useTranslation } from 'react-i18next';
 // framer-motion removed
-import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet, AlertTriangle, CircleDollarSign } from 'lucide-react';
+import { Calendar, RefreshCw, MapPin, Info, X, TrendingUp, TrendingDown, Minus, BarChart3, ChevronDown, ChevronUp, Copy, Check, Calculator, History, ChartSpline, Diff, Grid3X3, CircleGauge, FileSpreadsheet, AlertTriangle, CircleDollarSign, Code2 } from 'lucide-react';
 import StateBlock from './components/StateBlock';
 import { analyticsEmptyProps } from './lib/analyticsEmpty';
 import clsx from 'clsx';
@@ -174,7 +174,7 @@ const SegmentedControl = ({ options, value, onChange, className, size = 'default
 const HomeFaq = ({ lang, t }) => {
   const items = FAQ[lang] || FAQ.lv;
   return (
-    <section aria-labelledby="faq-heading" className="max-w-3xl mx-auto px-3 sm:px-6 mt-2">
+    <section aria-labelledby="faq-heading" className="max-w-5xl mx-auto px-3 sm:px-6 mt-2">
       <h2 id="faq-heading" className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
         {t('faq_heading')}
       </h2>
@@ -230,8 +230,12 @@ const SiteFooter = ({ lang, t }) => {
         </div>
       </div>
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <a href="/widget.html" className="hover:text-gray-900 transition-colors">
-          {t('footer_widget')}
+        <a href="/widget.html" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+          <Code2 className="w-4 h-4 text-gray-400" />
+          <span className="font-medium">{t('footer_widget')}</span>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-green-700 bg-green-100 rounded px-1.5 py-0.5">
+            {t('footer_widget_free')}
+          </span>
         </a>
       </div>
     </footer>
