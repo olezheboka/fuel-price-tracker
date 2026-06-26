@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="lv">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Degvielas cenu logrīks tavai vietnei — bezmaksas | cenometrs.lv</title>
+  <meta name="description" content="Pievieno bezmaksas degvielas cenu logrīku savai vietnei vai blogam. Aktuālās 95, 98, dīzeļa un gāzes cenas Latvijā, atjauninātas katru stundu. Vairāki izmēri un izkārtojumi." />
+  <link rel="canonical" href="https://www.cenometrs.lv/widget.html" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f5f5f7; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
+    h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; margin: 0 0 8px; }
+    .sub { color: #475569; font-size: 16px; margin: 0 0 28px; }
+    h2 { font-size: 18px; font-weight: 800; margin: 36px 0 12px; }
+    .panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 22px; box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
+    .controls { display: flex; flex-wrap: wrap; gap: 20px 28px; margin-bottom: 22px; }
+    .ctl label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin: 0 0 6px; }
+    .seg { display: inline-flex; background: #f1f5f9; border-radius: 10px; padding: 3px; gap: 2px; }
+    .seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; white-space: nowrap; }
+    .seg button.on { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .preview-box { display: flex; align-items: center; justify-content: center; min-height: 160px; padding: 28px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 14px; }
+    .preview-box.dark { background: #020617; border-color: #1e293b; }
+    pre { background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; margin: 16px 0 0; white-space: pre-wrap; word-break: break-word; }
+    .copy { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; background: #073C87; color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .copy:hover { background: #0a2a63; }
+    .note { font-size: 14px; color: #475569; }
+    .note a, .sub a { color: #073C87; }
+    ul { padding-left: 18px; }
+    li { margin: 4px 0; }
+    code.inl { background: #f1f5f9; padding: 1px 6px; border-radius: 6px; font-size: 13px; }
+    .hint { font-size: 13px; color: #94a3b8; margin: 8px 0 0; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Bezmaksas degvielas cenu logrīks</h1>
+    <p class="sub">Rādi aktuālās Latvijas degvielas cenas (95, 98, dīzelis, D+, gāze) savā vietnē vai blogā. Atjauninās automātiski katru stundu. <strong>Bez maksas.</strong></p>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="ctl">
+          <label>Izkārtojums</label>
+          <div class="seg" id="seg-layout">
+            <button data-layout="card" class="on">Kartiņa</button>
+            <button data-layout="strip">Josla</button>
+            <button data-layout="compact">Kompakts</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label>Izmērs</label>
+          <div class="seg" id="seg-size">
+            <button data-size="sm">S</button>
+            <button data-size="md" class="on">M</button>
+            <button data-size="lg">L</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label>Valoda</label>
+          <div class="seg" id="seg-lang">
+            <button data-lang="lv" class="on">LV</button>
+            <button data-lang="ru">RU</button>
+            <button data-lang="en">EN</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label>Tēma</label>
+          <div class="seg" id="seg-theme">
+            <button data-theme="light" class="on">Gaišs</button>
+            <button data-theme="dark">Tumšs</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-box" id="preview-box">
+        <div id="preview-host"></div>
+      </div>
+      <p class="hint" id="preview-hint">Dzīvais priekšskatījums ar šābrīža cenām.</p>
+
+      <pre id="snippet"></pre>
+      <button class="copy" id="copy-btn">Kopēt kodu</button>
+    </div>
+
+    <h2>Kā tas darbojas</h2>
+    <ul class="note">
+      <li>Ielīmē kodu vietā, kur vēlies redzēt logrīku — tas pats ielādēs cenas.</li>
+      <li>Dati nāk no <a href="/lv/">cenometrs.lv</a> un atjauninās katru stundu.</li>
+      <li><strong>Izkārtojumi:</strong> <code class="inl">card</code> (vertikāla kartiņa), <code class="inl">strip</code> (horizontāla josla), <code class="inl">compact</code> (mazs nozīmītes elements).</li>
+      <li><strong>Pielāgo</strong> ar <code class="inl">data-layout</code>, <code class="inl">data-size</code> (<code class="inl">sm</code>/<code class="inl">md</code>/<code class="inl">lg</code>), <code class="inl">data-lang</code>, <code class="inl">data-theme</code> un <code class="inl">data-fuels</code> (piem. <code class="inl">"diesel,95"</code>).</li>
+      <li>Logrīks ir responsīvs un pielāgojas konteinera platumam.</li>
+    </ul>
+
+    <p class="note" style="margin-top:28px;">Logrīks ir pieejams bez maksas. Lūdzam saglabāt saiti uz cenometrs.lv. · <a href="/lv/">← Atpakaļ uz cenometrs.lv</a></p>
+  </div>
+
+  <!-- Load the real widget script once; the controller below re-renders the
+       live preview via window.cenometrsWidgetInit() on every option change. -->
+  <script src="/widget.js"></script>
+  <script>
+    (function () {
+      var state = { layout: 'card', size: 'md', lang: 'lv', theme: 'light' };
+      var DEF = { layout: 'card', size: 'md', lang: 'lv', theme: 'light' };
+      var snippetEl = document.getElementById('snippet');
+      var host = document.getElementById('preview-host');
+      var box = document.getElementById('preview-box');
+
+      function attrsFor(includeFuelsAnchor) {
+        var a = '';
+        if (state.lang !== DEF.lang) a += ' data-lang="' + state.lang + '"';
+        if (state.layout !== DEF.layout) a += ' data-layout="' + state.layout + '"';
+        if (state.size !== DEF.size) a += ' data-size="' + state.size + '"';
+        if (state.theme !== DEF.theme) a += ' data-theme="' + state.theme + '"';
+        return a;
+      }
+
+      function snippet() {
+        var anchor = state.lang === 'ru' ? 'Цены на топливо в Латвии — cenometrs.lv'
+          : state.lang === 'en' ? 'Fuel prices in Latvia — cenometrs.lv'
+          : 'Degvielas cenas Latvijā — cenometrs.lv';
+        return '<div class="cenometrs-widget"' + attrsFor() + '>\n' +
+          '  <a href="https://www.cenometrs.lv/' + state.lang + '/">' + anchor + '</a>\n' +
+          '</div>\n' +
+          '<script async src="https://www.cenometrs.lv/widget.js"><\/script>';
+      }
+
+      function refresh() {
+        snippetEl.textContent = snippet();
+        box.className = 'preview-box' + (state.theme === 'dark' ? ' dark' : '');
+        host.innerHTML = '<div class="cenometrs-widget" data-lang="' + state.lang +
+          '" data-layout="' + state.layout + '" data-size="' + state.size +
+          '" data-theme="' + state.theme + '"></div>';
+        if (window.cenometrsWidgetInit) window.cenometrsWidgetInit();
+      }
+
+      function wire(id, key) {
+        document.getElementById(id).addEventListener('click', function (e) {
+          var b = e.target.closest('button'); if (!b) return;
+          state[key] = b.getAttribute('data-' + key);
+          [].forEach.call(this.querySelectorAll('button'), function (x) { x.classList.remove('on'); });
+          b.classList.add('on');
+          refresh();
+        });
+      }
+      wire('seg-layout', 'layout');
+      wire('seg-size', 'size');
+      wire('seg-lang', 'lang');
+      wire('seg-theme', 'theme');
+
+      document.getElementById('copy-btn').addEventListener('click', function () {
+        var btn = this;
+        navigator.clipboard.writeText(snippet()).then(function () {
+          btn.textContent = 'Nokopēts ✓';
+          setTimeout(function () { btn.textContent = 'Kopēt kodu'; }, 1800);
+        });
+      });
+
+      refresh();
+    })();
+  </script>
+</body>
+
+</html>

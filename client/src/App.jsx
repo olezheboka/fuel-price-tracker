@@ -229,6 +229,11 @@ const SiteFooter = ({ lang, t }) => {
           </ul>
         </div>
       </div>
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <a href="/widget.html" className="hover:text-gray-900 transition-colors">
+          {t('footer_widget')}
+        </a>
+      </div>
     </footer>
   );
 };

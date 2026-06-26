@@ -40,12 +40,20 @@ if (!IS_PRODUCTION) {
     ALLOWED_ORIGINS.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000');
 }
 
-app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-        return cb(new Error('CORS blocked'));
-    },
-    credentials: true,
+// Path-aware CORS: the embeddable widget data endpoint (/api/widget/*) must be
+// reachable from ANY third-party site that embeds the widget, so it gets open,
+// credential-less CORS. Everything else keeps the strict same-origin whitelist.
+app.use(cors((req, cb) => {
+    if (req.path.startsWith('/api/widget')) {
+        return cb(null, { origin: '*', credentials: false, methods: ['GET'] });
+    }
+    cb(null, {
+        origin: (origin, cb2) => {
+            if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb2(null, true);
+            return cb2(new Error('CORS blocked'));
+        },
+        credentials: true,
+    });
 }));
 
 app.use(express.json());
@@ -427,6 +435,62 @@ app.get('/api/prices/latest', async (req, res) => {
     } catch (error) {
         console.error('[API] /prices/latest error:', error.message);
         res.status(500).json({ error: 'Failed to fetch latest prices' });
+    }
+});
+
+// --- Embeddable widget data (public, open-CORS) -------------------------------
+// Powers /widget.js on third-party sites. Returns a tiny, presentation-ready
+// payload: the single cheapest station+price per canonical fuel group. Kept
+// separate from /api/prices/latest so the public surface stays minimal and the
+// reduction (grouping + cheapest pick) is authoritative server-side, letting
+// widget.js stay dumb. Mirrors client/src/lib/fuel.js grouping.
+const WIDGET_GROUP_ORDER = ['95', '98', 'diesel', 'pro', 'gas'];
+const NESTE_TYPE_TO_GROUP = {
+    'Neste Futura 95': '95',
+    'Neste Futura 98': '98',
+    'Neste Futura D': 'diesel',
+    'Neste Pro Diesel': 'pro',
+};
+const STATION_LABELS = { Neste: 'Neste', CircleK: 'Circle K', Virsi: 'Virši', Viada: 'Viada' };
+
+function buildWidgetPayload(prices) {
+    const cheapest = new Map(); // groupId -> { id, price, station, stationLabel }
+    for (const p of Array.isArray(prices) ? prices : []) {
+        if (typeof p.price !== 'number' || !Number.isFinite(p.price)) continue;
+        const id = NESTE_TYPE_TO_GROUP[p.type] || p.type;
+        if (!WIDGET_GROUP_ORDER.includes(id)) continue;
+        const station = p.source || 'Neste';
+        const cur = cheapest.get(id);
+        if (!cur || p.price < cur.price) {
+            cheapest.set(id, { id, price: p.price, station, stationLabel: STATION_LABELS[station] || station });
+        }
+    }
+    const fuels = WIDGET_GROUP_ORDER.filter((id) => cheapest.has(id)).map((id) => cheapest.get(id));
+    const updated = prices && prices[0] && prices[0].timestamp ? new Date(prices[0].timestamp).toISOString() : null;
+    return { updated, currency: 'EUR', fuels };
+}
+
+app.get('/api/widget/prices', async (req, res) => {
+    try {
+        let prices = null;
+        const snap = await getFreshSnapshot();
+        if (snap && snap.latest && snap.latest.length > 0) {
+            prices = snap.latest;
+        } else {
+            const db = await openDb();
+            prices = await db.all(`
+                SELECT type, price, source, timestamp
+                FROM fuel_prices
+                WHERE timestamp = (SELECT MAX(timestamp) FROM fuel_prices)
+            `);
+        }
+        // Short CDN/browser cache: data changes hourly, and embeds shouldn't
+        // refetch on every host page view. (Public, no per-user variance.)
+        res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+        res.json(buildWidgetPayload(prices));
+    } catch (error) {
+        console.error('[API] /widget/prices error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch widget prices' });
     }
 });
 
