@@ -5,6 +5,15 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/fuel-icon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- #seo-intro / #seo-faq are crawler-only mirrors of content the React app
+       renders itself (intro under the H1 on landing pages; the FAQ accordion).
+       They live in the raw HTML so non-JS crawlers (Bing/Yandex) and Google's
+       first-wave index see the text, but they must never be visible to users:
+       #seo-intro sits above #root, so before main.jsx removes it, it painted a
+       stray paragraph at the top of the page on every load (the pre-hydration
+       flash). Hiding them here means they never paint while staying in the
+       source for crawlers. main.jsx still removes them on mount. -->
+  <style>#seo-intro,#seo-faq{display:none}</style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://www.cenometrs.lv" />
