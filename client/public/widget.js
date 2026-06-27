@@ -90,23 +90,44 @@
       '<span style="font:700 ' + unitPx + 'px/1 ' + FONT + ';color:' + c.muted + ';"> €/l</span>';
   }
 
-  // Up to `k` station addresses for this fuel (server sends up to 6), each on its
-  // own truncated line. '' when none survived filtering (e.g. a discounted Neste
-  // row carries only a marker, not an address).
-  function addrLines(f, c, px, indentPx, k) {
-    var list = (f.addresses || []).slice(0, k);
-    if (!list.length) return '';
+  // Measure real text width via Canvas so "does this address fit" is exact,
+  // not a character-count guess — addresses vary wildly in length (10 to 30+
+  // chars) and a guess either truncates real ones or wastes space being too
+  // conservative. Falls back to "always fits" if Canvas is unavailable.
+  var measureCtx;
+  function textWidth(str, font) {
+    try {
+      if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+      measureCtx.font = font;
+      return measureCtx.measureText(str).width;
+    } catch { return 0; }
+  }
+
+  // Pick up to `k` addresses that measure within `maxWidth` at `font`, shortest
+  // first — never returns one that would have to be truncated. A fuel with no
+  // address short enough to fit (or no address at all, e.g. a discounted Neste
+  // row that only carries a marker) simply shows none.
+  function fittingAddresses(list, font, maxWidth, k) {
+    var out = [];
+    list.slice().sort(function (a, b) { return a.length - b.length; }).some(function (a) {
+      if (textWidth(a, font) <= maxWidth) out.push(a);
+      return out.length >= k;
+    });
+    return out;
+  }
+
+  // Render a pre-picked list of address lines, left-aligned flush with the row
+  // above (no indent guessing — that's what caused Large's misalignment).
+  function addrLines(list, c, px) {
     return list.map(function (a) {
-      return '<div style="font:500 ' + px + 'px/1.3 ' + FONT + ';color:' + c.muted +
-        ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' +
-        (indentPx ? 'padding-left:' + indentPx + 'px;' : '') + '">' + esc(a) + '</div>';
+      return '<div style="font:500 ' + px + 'px/1.3 ' + FONT + ';color:' + c.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(a) + '</div>';
     }).join('');
   }
 
-  // How many addresses to show per fuel — more when fewer fuels share the tile,
-  // so a single-fuel widget fills its space with stations instead of whitespace.
+  // Max addresses to *attempt* per fuel — more when fewer fuels share the tile.
+  // fittingAddresses() then trims this down to what actually fits.
   function addrCount(size, n) {
-    if (size === 'small') return 3;            // always one featured fuel
+    if (size === 'small') return 3;
     if (size === 'large') return n <= 1 ? 5 : n === 2 ? 3 : n === 3 ? 2 : 1;
     return n <= 1 ? 3 : n === 2 ? 2 : 1;       // medium
   }
@@ -136,6 +157,8 @@
   function renderSmall(el, c, fuels, t, href) {
     var f = featured(fuels);
     if (!f) return;
+    var addrFont = '500 11px ' + FONT;
+    var addrs = fittingAddresses(f.addresses || [], addrFont, 140 /* 172 tile - 16px*2 padding */, addrCount('small', 1));
     el.innerHTML =
       '<a href="' + href + '" target="_blank" rel="noopener" style="' + TILE +
         'display:flex;flex-direction:column;width:172px;height:172px;padding:16px;border:1px solid ' + c.border + ';border-radius:22px;background:' + c.bg + ';">' +
@@ -145,7 +168,7 @@
             priceHtml(f, c, 17) + '</span>' +
           '<span style="margin-top:7px;font:700 12px/1 ' + FONT + ';color:' + c.text + ';">' + esc(codeOf(f, t)) +
             ' <span style="font-weight:500;color:' + c.muted + ';">· ' + esc(f.stationLabel) + '</span></span>' +
-          addrLines(f, c, 11, 0, addrCount('small', 1)) +
+          addrLines(addrs, c, 11) +
         '</div>' +
         brand(c, true) +
       '</a>';
@@ -153,11 +176,14 @@
 
   function renderMedium(el, c, fuels, t, href) {
     var k = addrCount('medium', fuels.length);
+    var addrFont = '500 10px ' + FONT;
+    var addrMaxWidth = 110; // 132 nominal cell width - 11px*2 padding
     var cells = fuels.map(function (f) {
+      var addrs = fittingAddresses(f.addresses || [], addrFont, addrMaxWidth, k);
       return '<div style="flex:1 1 132px;min-width:128px;display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:13px;background:' + c.card + ';">' +
         '<span style="font:700 11px/1 ' + FONT + ';color:' + c.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(codeOf(f, t)) + ' · ' + esc(f.stationLabel) + '</span>' +
         '<span style="font:800 16px/1 ' + FONT + ';font-variant-numeric:tabular-nums;color:' + c.text + ';">' + priceHtml(f, c, 11) + '</span>' +
-        addrLines(f, c, 10, 0, k) +
+        addrLines(addrs, c, 10) +
       '</div>';
     }).join('');
     el.innerHTML =
@@ -171,14 +197,22 @@
 
   function renderLarge(el, c, fuels, t, href) {
     var k = addrCount('large', fuels.length);
+    var addrFont = '500 12px ' + FONT;
+    var addrMaxWidth = 302; // 360 tile - 18px*2 tile padding - 11px*2 row padding
+    // Row 1 is always the fuel type + price. Row 2+ is always brand + station —
+    // the first address rides inline with the brand (one flush-left block, no
+    // separate indent to keep in sync with row 1's column widths).
     var rows = fuels.map(function (f) {
+      var addrs = fittingAddresses(f.addresses || [], addrFont, addrMaxWidth, k);
+      var brandLine = '<div style="font:500 12px/1.3 ' + FONT + ';color:' + c.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+        '<span style="color:' + c.text + ';font-weight:700;">' + esc(f.stationLabel) + '</span>' +
+        (addrs[0] ? ' · ' + esc(addrs[0]) : '') + '</div>';
       return '<div style="display:flex;flex-direction:column;gap:2px;padding:8px 11px;border-radius:13px;background:' + c.card + ';">' +
         '<div style="display:flex;align-items:center;gap:10px;">' +
-          '<span style="font:800 13px/1 ' + FONT + ';min-width:30px;color:' + c.text + ';">' + esc(codeOf(f, t)) + '</span>' +
-          '<span style="flex:1;font:500 12px/1.2 ' + FONT + ';color:' + c.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(f.stationLabel) + '</span>' +
+          '<span style="flex:1;font:800 13px/1.2 ' + FONT + ';color:' + c.text + ';">' + esc(codeOf(f, t)) + '</span>' +
           '<span style="font:800 15px/1 ' + FONT + ';font-variant-numeric:tabular-nums;color:' + c.text + ';">' + priceHtml(f, c, 11) + '</span>' +
         '</div>' +
-        addrLines(f, c, 11, 40, k) +
+        brandLine + addrLines(addrs.slice(1), c, 12) +
       '</div>';
     }).join('');
     el.innerHTML =
