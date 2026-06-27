@@ -199,20 +199,18 @@
     var k = addrCount('large', fuels.length);
     var addrFont = '500 12px ' + FONT;
     var addrMaxWidth = 302; // 360 tile - 18px*2 tile padding - 11px*2 row padding
-    // Row 1 is always the fuel type + price. Row 2+ is always brand + station —
-    // the first address rides inline with the brand (one flush-left block, no
-    // separate indent to keep in sync with row 1's column widths).
+    // Row 1 mirrors Medium/Small's "code · station" treatment (grey, bold) so
+    // all three sizes read consistently, with price on the right. Row 2+ is
+    // just the addresses, flush-left — station already lives in row 1, so no
+    // repeated brand text and nothing to keep aligned with an indent guess.
     var rows = fuels.map(function (f) {
       var addrs = fittingAddresses(f.addresses || [], addrFont, addrMaxWidth, k);
-      var brandLine = '<div style="font:500 12px/1.3 ' + FONT + ';color:' + c.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
-        '<span style="color:' + c.text + ';font-weight:700;">' + esc(f.stationLabel) + '</span>' +
-        (addrs[0] ? ' · ' + esc(addrs[0]) : '') + '</div>';
       return '<div style="display:flex;flex-direction:column;gap:2px;padding:8px 11px;border-radius:13px;background:' + c.card + ';">' +
         '<div style="display:flex;align-items:center;gap:10px;">' +
-          '<span style="flex:1;font:800 13px/1.2 ' + FONT + ';color:' + c.text + ';">' + esc(codeOf(f, t)) + '</span>' +
+          '<span style="flex:1;font:700 13px/1.2 ' + FONT + ';color:' + c.muted + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(codeOf(f, t)) + ' · ' + esc(f.stationLabel) + '</span>' +
           '<span style="font:800 15px/1 ' + FONT + ';font-variant-numeric:tabular-nums;color:' + c.text + ';">' + priceHtml(f, c, 11) + '</span>' +
         '</div>' +
-        brandLine + addrLines(addrs.slice(1), c, 12) +
+        addrLines(addrs, c, 12) +
       '</div>';
     }).join('');
     el.innerHTML =
