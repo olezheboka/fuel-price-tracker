@@ -2092,18 +2092,23 @@ export default function App() {
             {lastCheck && (
               <div className="flex items-center justify-start gap-1.5 sm:gap-2 text-gray-400 mb-2">
                 <span className="text-[10px] sm:text-xs font-medium">
-                  {justChecked
-                    ? t('checked_just_now')
-                    : !tsConfirmed
-                    ? `${t('updated')}: …`
-                    : `${t('updated')}: ${new Date(lastCheck).toLocaleString(i18n.language === 'en' ? 'en-GB' : i18n.language, {
-                        timeZone: 'Europe/Riga',
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}`}
+                  {justChecked ? (
+                    t('checked_just_now')
+                  ) : !tsConfirmed ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      {t('updated')}:
+                      <Skeleton className="h-2.5 w-20 sm:w-24" />
+                    </span>
+                  ) : (
+                    `${t('updated')}: ${new Date(lastCheck).toLocaleString(i18n.language === 'en' ? 'en-GB' : i18n.language, {
+                      timeZone: 'Europe/Riga',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}`
+                  )}
                 </span>
                 <button
                   onClick={handleRefresh}
