@@ -1,6 +1,16 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
+
+// Constant-time string compare via fixed-length SHA-256 digests, so neither the
+// length nor the content of a secret leaks through response timing. Used to
+// validate the CRON_SECRET bearer on /api/scrape.
+function safeEqual(a, b) {
+    const ah = crypto.createHash('sha256').update(String(a)).digest();
+    const bh = crypto.createHash('sha256').update(String(b)).digest();
+    return crypto.timingSafeEqual(ah, bh);
+}
 const { initDb, openDb } = require('./db');
 const { scrapeAll } = require('./scrapers');
 const { writeSnapshot, hydrateFromBlob, getMemory, getMemoryAge, isMemoryConfirmed, setMemory, touchMemory } = require('./snapshot');
@@ -56,7 +66,9 @@ app.use(cors((req, cb) => {
     });
 }));
 
-app.use(express.json());
+// No route consumes a request body (every endpoint is GET), so keep the JSON
+// parser's limit tight as a defensive default rather than the 100kb stock cap.
+app.use(express.json({ limit: '8kb' }));
 
 // --- Security: Basic rate limiting (in-memory, per-instance) ---
 // Best-effort only — on Vercel serverless each warm instance has its own Map,
@@ -581,7 +593,7 @@ app.get('/api/scrape', async (req, res) => {
         const cronSecret = process.env.CRON_SECRET;
         if (cronSecret) {
             const auth = req.headers.authorization || '';
-            if (auth !== `Bearer ${cronSecret}`) {
+            if (!safeEqual(auth, `Bearer ${cronSecret}`)) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
         } else if (IS_PRODUCTION) {

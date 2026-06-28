@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { openDb } = require('./db');
-const { validatePrice } = require('./scrapers/normalize');
+const { validatePrice, MAX_RESPONSE_BYTES, MAX_REDIRECTS } = require('./scrapers/normalize');
 
 const PRICES_URL = 'https://www.neste.lv/lv/content/degvielas-cenas';
 const HOMEPAGE_URL = 'https://www.neste.lv/lv';
@@ -56,7 +56,10 @@ async function detectHomepageDiscount() {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5'
             },
-            timeout: 8000
+            timeout: 8000,
+            maxContentLength: MAX_RESPONSE_BYTES,
+            maxBodyLength: MAX_RESPONSE_BYTES,
+            maxRedirects: MAX_REDIRECTS
         });
         const text = cheerio.load(data).text().replace(/\s+/g, ' ');
         // Relaxed: any "samazināta cena" mention on the homepage indicates a
@@ -107,7 +110,10 @@ async function detectInstagramDiscount() {
                 'User-Agent': SCRAPER_USER_AGENT,
                 'Accept': 'application/rss+xml, application/xml, text/xml, */*'
             },
-            timeout: 5000
+            timeout: 5000,
+            maxContentLength: MAX_RESPONSE_BYTES,
+            maxBodyLength: MAX_RESPONSE_BYTES,
+            maxRedirects: MAX_REDIRECTS
         });
         const items = [...String(data).matchAll(/<item>[\s\S]*?<\/item>/g)].slice(0, 3);
         const today = getRigaDateParts(new Date());
@@ -197,7 +203,10 @@ async function scrapePrices(sharedTimestamp) {
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
                     'Accept-Language': 'en-US,en;q=0.5'
                 },
-                timeout: 8000 // 8 second timeout
+                timeout: 8000, // 8 second timeout
+                maxContentLength: MAX_RESPONSE_BYTES,
+                maxBodyLength: MAX_RESPONSE_BYTES,
+                maxRedirects: MAX_REDIRECTS
             }),
             detectHomepageDiscount(),
             detectInstagramDiscount()

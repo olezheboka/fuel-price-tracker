@@ -25,9 +25,23 @@ const REQUEST_HEADERS = {
     'Accept-Language': 'en-US,en;q=0.5',
 };
 
-// Same headers / 8s timeout as the Neste scraper.
+// Cap the buffered response so a compromised/MITM'd provider (or a misbehaving
+// proxy) can't exhaust the serverless function's memory with a huge body. The
+// largest real provider page is ~250 KB, so 10 MB is ~40x headroom — a genuine
+// page is never rejected, but a hostile multi-hundred-MB body is. maxRedirects
+// stays at the axios default of 5 (providers do apex→www / http→https hops).
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_REDIRECTS = 5;
+
+// Same headers / 8s timeout as the Neste scraper, plus the shared response caps.
 async function fetchHtml(url) {
-    const { data } = await axios.get(url, { headers: REQUEST_HEADERS, timeout: 8000 });
+    const { data } = await axios.get(url, {
+        headers: REQUEST_HEADERS,
+        timeout: 8000,
+        maxContentLength: MAX_RESPONSE_BYTES,
+        maxBodyLength: MAX_RESPONSE_BYTES,
+        maxRedirects: MAX_REDIRECTS,
+    });
     return data;
 }
 
@@ -86,4 +100,6 @@ module.exports = {
     SCRAPER_USER_AGENT,
     MIN_REALISTIC_PRICE,
     MAX_REALISTIC_PRICE,
+    MAX_RESPONSE_BYTES,
+    MAX_REDIRECTS,
 };
