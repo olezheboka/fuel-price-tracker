@@ -152,7 +152,14 @@ async function openDb() {
             const { Pool } = require('pg');
             const pool = new Pool({
                 connectionString: process.env.POSTGRES_URL,
-                ssl: { rejectUnauthorized: false },
+                // Verify the server certificate (was rejectUnauthorized:false, which
+                // encrypted but skipped cert/hostname checks — open to MITM). The
+                // Prisma Postgres host (db.prisma.io) serves a publicly-trusted
+                // Let's Encrypt cert that chains to Node's built-in roots, so full
+                // verification works with no custom CA. Passing the ssl object
+                // explicitly also pins this regardless of how the URL's sslmode is
+                // interpreted across pg major versions.
+                ssl: { rejectUnauthorized: true },
                 // Serverless tuning. Every instance is cold right after a deploy and
                 // they all race to connect at once; the previous max:3 over-subscribed
                 // Prisma Postgres's connection budget (a connection storm), and the 10s
