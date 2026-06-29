@@ -24,7 +24,7 @@ import { DISCOUNT_COLOR, DISCOUNT_MARKER_RE, EXTERNAL_DISCOUNT_RE, droppedEnough
 import { initFilterSet } from './lib/filters.js';
 import { ALL_CITY_IDS, citiesOf, cityOfAddress, citySlug, cityFromSlug, cityInflected, setsIntersect, DEFAULT_CITY } from './lib/cities.js';
 import { loadPrefs, savePrefs } from './lib/prefs.js';
-import { pageFromPath, pagePath, PAGES, PAGE_META, FAQ } from './lib/seo-meta.js';
+import { pageFromPath, pagePath, langPath, PAGES, PAGE_META, FAQ } from './lib/seo-meta.js';
 import { buildChartData, defaultBrushWindow, resolveBrushFromDates } from './lib/chart.js';
 
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
@@ -213,6 +213,10 @@ const HomeFaq = ({ lang, t }) => {
 // weaker discovery/relevance signal than an actual on-site link. Anchor text is
 // keyword-rich (label + localized "fuel prices") rather than a bare brand/fuel
 // code, so each link reinforces the target page's topic.
+// "Latvia" in the case the footer_city_prices template needs per language
+// (LV locative Latvijā, RU prepositional Латвии, EN nominative).
+const COUNTRY_INFLECTED = { lv: 'Latvijā', ru: 'Латвии', en: 'Latvia' };
+
 const SiteFooter = ({ lang, t }) => {
   const stationPages = PAGES.filter((p) => p.kind === 'station');
   const fuelPages = PAGES.filter((p) => p.kind === 'fuel');
@@ -247,6 +251,14 @@ const SiteFooter = ({ lang, t }) => {
         <div>
           <div className="font-semibold text-gray-700 mb-2">{t('footer_by_city')}</div>
           <ul className="space-y-1.5">
+            {/* All-cities entry first → the language home (no city filter).
+                Reuses the "fuel prices in <place>" template with the country
+                name in the right case per language (LV locative, RU prepositional). */}
+            <li>
+              <a href={langPath(lang)} className="hover:text-gray-900 transition-colors">
+                {t('footer_city_prices', { city: COUNTRY_INFLECTED[lang] || 'Latvia' })}
+              </a>
+            </li>
             {cityPages.map((p) => (
               <li key={p.slug}>
                 <a href={pagePath(lang, p.slug)} className="hover:text-gray-900 transition-colors">
