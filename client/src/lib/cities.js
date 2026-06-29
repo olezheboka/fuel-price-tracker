@@ -43,6 +43,17 @@ export const citySlug = (name) => normalize(name);
 // for an unknown slug (so a hand-edited URL can't inject a bogus city).
 export const cityFromSlug = (slug) => CITY_DICTIONARY[normalize(slug)] || null;
 
+// City name in the case required by the "fuel prices in <city>" footer phrasing
+// per language — LV locative (Rīgā), RU prepositional (Риге), EN nominative.
+// Only the published city-page cities need entries; cityInflected() falls back to
+// the canonical name for anything missing. (The filter dropdown uses the plain
+// canonical name; only this sentence-form anchor text needs inflection.)
+export const CITY_LOCALIZED = {
+  'Rīga':    { lv: 'Rīgā',    ru: 'Риге',   en: 'Rīga' },
+  'Liepāja': { lv: 'Liepājā', ru: 'Лиепае', en: 'Liepāja' },
+};
+export const cityInflected = (name, lang) => CITY_LOCALIZED[name]?.[lang] || name;
+
 // Canonical city for a single address chip: the token after the last comma,
 // matched against the dictionary; DEFAULT_CITY when unrecognized/street-only.
 export const cityOfAddress = (addr) => {

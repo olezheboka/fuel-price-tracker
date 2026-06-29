@@ -22,7 +22,7 @@ import { setLangCookie } from './i18n';
 import { FUEL_COLORS, STATIONS, STATION_ORDER, STATION_FUEL_SUPPORT, FUEL_GROUPS, FUEL_GROUP_IDS, NESTE_TYPE_TO_GROUP, fuelGroupId, stationKey } from './lib/fuel.js';
 import { DISCOUNT_COLOR, DISCOUNT_MARKER_RE, EXTERNAL_DISCOUNT_RE, droppedEnough, isDiscountDay } from './lib/discounts.js';
 import { initFilterSet } from './lib/filters.js';
-import { ALL_CITY_IDS, citiesOf, cityOfAddress, citySlug, cityFromSlug, setsIntersect, DEFAULT_CITY } from './lib/cities.js';
+import { ALL_CITY_IDS, citiesOf, cityOfAddress, citySlug, cityFromSlug, cityInflected, setsIntersect, DEFAULT_CITY } from './lib/cities.js';
 import { loadPrefs, savePrefs } from './lib/prefs.js';
 import { pageFromPath, pagePath, PAGES, PAGE_META, FAQ } from './lib/seo-meta.js';
 import { buildChartData, defaultBrushWindow, resolveBrushFromDates } from './lib/chart.js';
@@ -250,7 +250,7 @@ const SiteFooter = ({ lang, t }) => {
             {cityPages.map((p) => (
               <li key={p.slug}>
                 <a href={pagePath(lang, p.slug)} className="hover:text-gray-900 transition-colors">
-                  {p.filterId} {t('footer_prices_label')}
+                  {t('footer_city_prices', { city: cityInflected(p.filterId, lang) })}
                 </a>
               </li>
             ))}
